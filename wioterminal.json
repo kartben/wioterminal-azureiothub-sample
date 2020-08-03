@@ -1,0 +1,48 @@
+{
+  "@context": "dtmi:dtdl:context;2",
+  "@id": "dtmi:seeed:wioterminal;1",
+  "@type": "Interface",
+  "displayName": "Seeed Studio Wio Terminal",
+  "contents": [
+    {
+      "@type": [
+        "Telemetry",
+        "Acceleration"
+      ],
+      "unit": "gForce",
+      "name": "imu",
+      "schema": {
+        "@type": "Object",
+        "fields": [
+          {
+            "name": "x",
+            "displayName": "IMU X",
+            "schema": "double"
+          },
+          {
+            "name": "y",
+            "displayName": "IMU Y",
+            "schema": "double"
+          },
+          {
+            "name": "z",
+            "displayName": "IMU Z",
+            "schema": "double"
+          }
+        ]
+      }
+    },
+    {
+      "@type": "Command",
+      "name": "ringBuzzer",
+      "displayName": "Ring buzzer",
+      "description": "Rings the Wio Terminal's built-in buzzer",
+      "request": {
+        "name": "duration",
+        "displayName": "Duration",
+        "description": "Number of milliseconds to ring the buzzer for.",
+        "schema": "integer"
+      }
+    }
+  ]
+}
