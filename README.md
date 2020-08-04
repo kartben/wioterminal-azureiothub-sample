@@ -41,17 +41,29 @@ You can either manually download [``wioterminal.json``](./wioterminal.json) or c
 
 ![](assets/azure-iot-explorer-configure-model-location.png)
 
+### Testing that telemetry is correctly sent to Azure IoT Hub
+
 To **check that telemetry data is correctly sent**, you will want to subscribe to the telemetry feed of your device. Since this code sample leverages IoT Plug and Play, Azure IoT Explorer will provide you with extra information regarding the data model for your IMU sensor data (e.g the unit of measurement being "g") if you enable the "Show modeled events" option.
 
 ![](assets/azure-iot-explorer-telemetry.gif)
+
+### Sending a command from Azure IoT Hub
 
 In order to send the `ringBuzzer` command, head over to the "Commands" section of the IoT Plug and Play default component of your device, enter a duration, and send the command.
 
 ![](assets/azure-iot-explorer-send-command.gif)
 
-## A few words on the Azure C SDK and how it's been ported to Wio Terminal
+## A few words on the Azure SDK for Embedded C and how it's been ported to Wio Terminal
 
-TODO
+Note: As of today, the Azure SDK for Embedded C is still being actively developed, therefore, it hasn't been officially released as an Arduino or PlatformIO library. To make it easier for you to get started, the Azure IoT client libraries have been included in the [`lib/azure-sdk-for-c`](lib/azure-sdk-for-c) folder. You can synchronize them with the latest version from the Embedded C SDK github repository by running the [`lib/download_aziot_embedded_c_lib.sh`](download_aziot_embedded_c_lib.sh) script.
+
+You can read more on the Azure IoT client library [here](https://github.com/Azure/azure-sdk-for-c/tree/master/sdk/docs/iot#azure-iot-clients), but in a nutshell, here's what had to be done to get the Wio Terminal connected:
+
+* As this sample uses symmetric keys to authenticate, a [security token](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-security#security-tokens) needs to be generated.
+  * Since the generated token has an expiration date (typically set to a few hours in the future), **we need to know the current date and time**. We use an [NTP](https://github.com/sstaub/NTP) library to get the current time from a time server.
+  * The token includes an **HMAC-SHA256 signature string that needs to be base64-encoded**. Luckily, the [recommended WiFi+TLS stack](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/#libraries-installation) of the Wio Terminal already includes Mbed TLS, making it relatively simple to compute HMAC signatures (ex. `mbedtls_md_hmac_starts`) and perform base64 encoding (ex. `mbedtls_base64_encode`).
+* The Azure IoT client libraries help with crafting MQTT topics that follow the [Azure IoT conventions](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support), but you still need to **provide your own MQTT library**. In fact, that is a major difference with the historical Azure IoT C SDK, for which the MQTT implementation was baked into it. Since it is widely supported and just worked out-of-the-box, this sample uses the [`PubSubClient`](https://github.com/knolleary/pubsubclient) MQTT library from [Nick O'Leary](https://github.com/knolleary).
+* And of course, one has to implement their own **application logic**. For this sample application, this meant using the Wio Terminal's IMU driver to get acceleration data every 2 seconds, or hooking up the `ringBuzzer` command to actual embedded code that rings the buzzer.
 
 ## Author
 
