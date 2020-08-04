@@ -3,11 +3,15 @@
 [![Twitter: kartben](https://img.shields.io/twitter/follow/kartben.svg?style=social)](https://twitter.com/kartben)
 [![Build Status](https://travis-ci.org/kartben/wioterminal-azureiothub-sample.svg?branch=master)](https://travis-ci.org/kartben/wioterminal-azureiothub-sample)
 
-This sample application shows you how to connect your [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) from Seeed Studio to [Azure IoT Hub](https://azure.microsoft.com/services/iot-hub). 
+This sample application shows you how to connect your [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) from Seeed Studio to [Azure IoT Hub](https://azure.microsoft.com/services/iot-hub). It is built on top of the [Azure SDK for Embedded C](https://github.com/Azure/azure-sdk-for-c), a small footprint, easy-to-port library for communicating with Azure services.
 
-It is built on top of the [Azure SDK for Embedded C](https://github.com/Azure/azure-sdk-for-c), a small footprint, easy-to-port library for communicating with Azure services.
+As the Wio Terminal is one of PlatformIO's (many!) supported platforms, the sample is conveniently made available as a PlatformIO project. This means that you don't have to worry about installing the [multiple Arduino libraries](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/) the Wio Terminal requires for Wi-Fi & TLS, and you don't need to manually install any other third-party library either! All dependencies are automatically fetched from Github by the PlatformIO Library Manager.
 
-As [PlatformIO](https://platformio.org/) [supports](https://docs.platformio.org/en/latest/boards/atmelsam/seeed_wio_terminal.html) the Wio Terminal, the sample comes in the form a PlatformIO project. This means that you don't have to worry about installing the [multiple Arduino libraries](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/) the Wio Terminal requires for Wi-Fi & TLS, and you don't need to manually install any other third-party library either! All dependencies are automatically fetched from Github by the PlatformIO Library Manager.
+  - [Running the sample](#running-the-sample)
+  - [Testing the sample](#testing-the-sample)
+    - [Testing that telemetry is correctly sent to Azure IoT Hub](#testing-that-telemetry-is-correctly-sent-to-azure-iot-hub)
+    - [Sending a command from Azure IoT Hub](#sending-a-command-from-azure-iot-hub)
+  - [A few words on the Azure SDK for Embedded C and how it's been ported to Wio Terminal](#a-few-words-on-the-azure-sdk-for-embedded-c-and-how-its-been-ported-to-wio-terminal)
 
 ## Running the sample
 
