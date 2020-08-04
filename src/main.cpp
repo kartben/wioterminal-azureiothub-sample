@@ -98,11 +98,11 @@ static int send_command_response(
               sizeof(commands_response_topic),
               NULL)))
   {
-    Serial.println("Unable to get twin document publish topic");
+    Serial.println("Unable to get method response publish topic");
     return rc;
   }
 
-  Serial.printf("Status: %u\tPayload:", status);
+  Serial.printf("Status: %u\tPayload: '", status);
   char *payload_char = (char *)az_span_ptr(response);
   if (payload_char != NULL)
   {
@@ -111,7 +111,7 @@ static int send_command_response(
       Serial.print(*(payload_char + i));
     }
   }
-  Serial.println('\n');
+  Serial.println("'\n");
 
   // Send the commands response
   if (mqtt_client.publish(commands_response_topic, az_span_ptr(response), az_span_size(response), false))
@@ -184,15 +184,6 @@ static void handle_command_message(
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++)
-  {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-
   az_span topic_span = az_span_init((uint8_t *)topic, strlen(topic));
   az_iot_hub_client_method_request command_request;
 
