@@ -277,12 +277,9 @@ void setup()
 
     pinMode(WIO_BUZZER, OUTPUT);
 
-    //Initialize serial and wait for port to open:
+    //Initialize serial
     Serial.begin(115200);
-    while (!Serial)
-        ; // Wait for Serial to be ready
-    delay(1000);
-
+    
     // Init IMU
     lis.begin(Wire1);
     lis.setOutputDataRate(LIS3DHTR_DATARATE_25HZ); // Setting output data rage to 25Hz, can be set up tp 5kHz
