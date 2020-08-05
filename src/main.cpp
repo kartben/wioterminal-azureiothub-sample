@@ -240,20 +240,19 @@ static int connectToAzureIoTHub(const az_iot_hub_client *iot_hub_client)
 
     while (!mqtt_client.connected())
     {
-        lcd_log_line("Connecting to Azure IoT Hub");
-        Serial.print("Azure IoT Hub connection ... ");
+        lcd_log_line("Connecting to Azure IoT Hub...");
+        Serial.println("Connecting to Azure IoT Hub...");
+
 
         if (mqtt_client.connect(mqtt_client_id, mqtt_username, sas_token))
         {
-            Serial.println("connected.");
             lcd_log_line("> SUCCESS.");
+            Serial.println("> SUCCESS.");
         }
         else
         {
             lcd_log_line("> ERROR.");
-            Serial.print("failed, status code =");
-            Serial.print(mqtt_client.state());
-            Serial.println(". Try again in 5 seconds.");
+            Serial.printf("> ERROR. Status code =%d. Try again in 5 seconds.\r\n",mqtt_client.state());
             // Wait 5 seconds before retrying
             delay(5000);
         }
@@ -303,9 +302,8 @@ void setup()
         // wait 1 second for re-trying
         delay(1000);
     }
-    Serial.print("Connected to ");
-    Serial.println(ssid);
     lcd_log_line("> SUCCESS.");
+    Serial.println("> SUCCESS.");
 
     wifi_client.setCACert(baltimore_root_ca);
 
