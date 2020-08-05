@@ -1,7 +1,7 @@
 # Welcome to wioterminal-azureiothub-sample 👋
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](/LICENSE)
 [![Twitter: kartben](https://img.shields.io/twitter/follow/kartben.svg?style=social)](https://twitter.com/kartben)
-[![Build Status](https://travis-ci.org/kartben/wioterminal-azureiothub-sample.svg?branch=master)](https://travis-ci.org/kartben/wioterminal-azureiothub-sample)
+[![PlatformIO CI](https://github.com/kartben/wioterminal-azureiothub-sample/workflows/PlatformIO%20CI/badge.svg)](https://github.com/kartben/wioterminal-azureiothub-sample/actions?query=workflow%3A%22PlatformIO+CI%22)
 
 This sample application shows you how to connect your [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) from Seeed Studio to [Azure IoT Hub](https://azure.microsoft.com/services/iot-hub). It is built on top of the [Azure SDK for Embedded C](https://github.com/Azure/azure-sdk-for-c), a small footprint, easy-to-port library for communicating with Azure services.
 
