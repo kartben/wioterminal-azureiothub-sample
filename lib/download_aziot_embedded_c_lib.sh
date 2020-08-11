@@ -1,6 +1,6 @@
 command -v zip >/dev/null 2>&1 || { echo >&2 "Please install zip."; exit 1; }
 
-git clone https://github.com/Azure/azure-sdk-for-c sdkrepo
+git clone https://github.com/Azure/azure-sdk-for-c --branch 1.0.0-preview.4 sdkrepo
 
 rm -rf azure-sdk-for-c
 mkdir azure-sdk-for-c

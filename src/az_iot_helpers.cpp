@@ -20,7 +20,7 @@ static unsigned char base64_decoded_device_key[32];
 
 int generateSasToken(const az_iot_hub_client *iot_hub_client, const char *device_key, uint32_t expiration, char *sas_token, size_t size)
 {
-  az_span signature_span = az_span_init((uint8_t *)signature, sizeofarray(signature));
+  az_span signature_span = az_span_create((uint8_t *)signature, sizeofarray(signature));
   az_span out_signature_span;
 
   // Get signature
@@ -53,7 +53,7 @@ int generateSasToken(const az_iot_hub_client *iot_hub_client, const char *device
   size_t encrypted_sig_length;
   mbedtls_base64_encode((unsigned char *)b64enc_hmacsha256_signature, 64, &encrypted_sig_length, encrypted_signature, mbedtls_md_get_size(mbedtls_md_info_from_type(md_type)));
 
-  az_span b64enc_hmacsha256_signature_span = az_span_init(
+  az_span b64enc_hmacsha256_signature_span = az_span_create(
       (uint8_t *)b64enc_hmacsha256_signature, encrypted_sig_length);
 
   // URl-encode base64 encoded encrypted signature

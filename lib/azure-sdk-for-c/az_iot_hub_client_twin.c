@@ -3,11 +3,11 @@
 
 #include <stdint.h>
 
-#include <az_iot_hub_client.h>
 #include <az_precondition.h>
 #include <az_result.h>
 #include <az_span.h>
 #include <az_span_internal.h>
+#include <az_iot_hub_client.h>
 
 #include <az_log_internal.h>
 #include <az_precondition_internal.h>
@@ -40,7 +40,7 @@ AZ_NODISCARD az_result az_iot_hub_client_twin_document_get_publish_topic(
   _az_PRECONDITION(mqtt_topic_size > 0);
   (void)client;
 
-  az_span mqtt_topic_span = az_span_init((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
+  az_span mqtt_topic_span = az_span_create((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
   int32_t required_length = az_span_size(az_iot_hub_twin_topic_prefix)
       + az_span_size(az_iot_hub_twin_get_pub_topic)
       + (int32_t)sizeof(az_iot_hub_client_twin_question)
@@ -78,7 +78,7 @@ AZ_NODISCARD az_result az_iot_hub_client_twin_patch_get_publish_topic(
   _az_PRECONDITION(mqtt_topic_size > 0);
   (void)client;
 
-  az_span mqtt_topic_span = az_span_init((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
+  az_span mqtt_topic_span = az_span_create((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
   int32_t required_length = az_span_size(az_iot_hub_twin_topic_prefix)
       + az_span_size(az_iot_hub_twin_patch_pub_topic)
       + (int32_t)sizeof(az_iot_hub_client_twin_question)

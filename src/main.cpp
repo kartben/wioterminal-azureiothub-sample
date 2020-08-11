@@ -201,7 +201,7 @@ static void handle_command_message(
 
 void callback(char *topic, byte *payload, unsigned int length)
 {
-    az_span topic_span = az_span_init((uint8_t *)topic, strlen(topic));
+    az_span topic_span = az_span_create((uint8_t *)topic, strlen(topic));
     az_iot_hub_client_method_request command_request;
 
     if (az_succeeded(az_iot_hub_client_methods_parse_received_topic(
@@ -210,7 +210,7 @@ void callback(char *topic, byte *payload, unsigned int length)
         lcd_log_line("Command arrived!");
         Serial.println("Command arrived!");
         // Determine if the command is supported and take appropriate actions
-        handle_command_message(az_span_init(payload, length), &command_request);
+        handle_command_message(az_span_create(payload, length), &command_request);
     }
 
     Serial.println();
@@ -314,8 +314,8 @@ void setup()
 
     if (az_failed(az_iot_hub_client_init(
         &iot_hub_client,
-        az_span_init((uint8_t *)server, strlen(server)),
-        az_span_init((uint8_t *)deviceId, strlen(deviceId)),
+        az_span_create((uint8_t *)server, strlen(server)),
+        az_span_create((uint8_t *)deviceId, strlen(deviceId)),
         &options)))
     {
         Serial.println("Failed initializing Azure IoT Hub client");
