@@ -288,8 +288,7 @@ void setup()
     char buf[42];
     sprintf(buf, "Connecting to SSID: %s", ssid);
     lcd_log_line(buf);
-    Serial.print(buf);
-    Serial.println(ssid);
+    Serial.println(buf);
     WiFi.begin(ssid, password);
 
     // attempt to connect to Wifi network:
@@ -300,7 +299,7 @@ void setup()
         delay(1000);
     }
     lcd_log_line("> SUCCESS.");
-    Serial.println("> SUCCESS.");
+    Serial.println("\r\n> SUCCESS.");
 
     wifi_client.setCACert(baltimore_root_ca);
 
