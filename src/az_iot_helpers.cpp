@@ -15,8 +15,8 @@
 #define ONE_HOUR_IN_SECS 3600
 
 static uint8_t signature[1024];
-static unsigned char encrypted_signature[32];
-static unsigned char base64_decoded_device_key[32];
+static unsigned char encrypted_signature[64];
+static unsigned char base64_decoded_device_key[64];
 
 int generateSasToken(const az_iot_hub_client *iot_hub_client, const char *device_key, uint32_t expiration, char *sas_token, size_t size)
 {
@@ -86,7 +86,7 @@ int generateSasTokenDPS(const az_iot_provisioning_client *provisioning_client, c
 
   // Base64-decode device key
   size_t base64_decoded_device_key_length;
-  mbedtls_base64_decode(base64_decoded_device_key, 32, &base64_decoded_device_key_length, (unsigned char *)device_key, strlen(device_key));
+  mbedtls_base64_decode(base64_decoded_device_key, sizeof(base64_decoded_device_key), &base64_decoded_device_key_length, (unsigned char *)device_key, strlen(device_key));
 
   if (base64_decoded_device_key_length == 0)
   {
