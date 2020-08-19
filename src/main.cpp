@@ -244,12 +244,6 @@ static int connectToAzureIoTHub(const az_iot_hub_client *iot_hub_client)
         lcd_log_line("Connecting to Azure IoT Hub...");
         Serial.println("Connecting to Azure IoT Hub...");
 
-        Serial.print("client_id = ");
-        Serial.println(mqtt_client_id);
-        Serial.print("mqtt_username = ");
-        Serial.println(mqtt_username);
-        Serial.print("sas_token = ");
-        Serial.println(sas_token);
         if (mqtt_client.connect(mqtt_client_id, mqtt_username, sas_token))
         {
             lcd_log_line("> SUCCESS.");
@@ -541,7 +535,7 @@ void setup()
     // Initialize the Azure IoT Hub client with the hub host endpoint and the default connection options
     az_iot_hub_client_options options = az_iot_hub_client_options_default();
     // This is optional, but allows to leverage IoT Plug and Play
-    // options.model_id = model_id;
+    options.model_id = model_id;
 
     if (az_failed(az_iot_hub_client_init(
         &iot_hub_client,
