@@ -244,7 +244,12 @@ static int connectToAzureIoTHub(const az_iot_hub_client *iot_hub_client)
         lcd_log_line("Connecting to Azure IoT Hub...");
         Serial.println("Connecting to Azure IoT Hub...");
 
-
+        Serial.print("client_id = ");
+        Serial.println(mqtt_client_id);
+        Serial.print("mqtt_username = ");
+        Serial.println(mqtt_username);
+        Serial.print("sas_token = ");
+        Serial.println(sas_token);
         if (mqtt_client.connect(mqtt_client_id, mqtt_username, sas_token))
         {
             lcd_log_line("> SUCCESS.");
@@ -269,6 +274,9 @@ static int connectToAzureIoTHub(const az_iot_hub_client *iot_hub_client)
 }
 
 static az_iot_provisioning_client provisioning_client;
+static bool is_operation_complete = false;
+static az_iot_provisioning_client_operation_status operation_status;
+static az_iot_provisioning_client_register_response response;
 
 void callbackDPS(char *topic, byte *payload, unsigned int length)
 {
@@ -280,7 +288,8 @@ void callbackDPS(char *topic, byte *payload, unsigned int length)
     Serial.print(' ');
     Serial.println((const char*)payload);
 
-    az_iot_provisioning_client_register_response response;
+    // parse_registration_message()
+
     if (az_failed(az_iot_provisioning_client_parse_received_topic_and_payload(&provisioning_client, az_span_init((uint8_t*)topic, strlen(topic)), az_span_init(payload, length), &response)))
     {
         Serial.println("Message from unknown topic");
@@ -289,7 +298,6 @@ void callbackDPS(char *topic, byte *payload, unsigned int length)
     Serial.print("Response status = ");
     Serial.println(response.status);
 
-    az_iot_provisioning_client_operation_status operation_status;
     if (az_failed(az_iot_provisioning_client_parse_operation_status(&response, &operation_status)))
     {
         Serial.println("Failed to parse operation_status");
@@ -297,168 +305,32 @@ void callbackDPS(char *topic, byte *payload, unsigned int length)
     }
     Serial.print("Operation status = ");
     Serial.println((int)operation_status);
-}
 
-void setup()
-{
-    tft.begin();
-    tft.setRotation(3);
-    tft.fillScreen(TFT_WHITE);
-    tft.setFreeFont(&LCD_FONT);
-    tft.setTextColor(TFT_BLACK);
-
-    pinMode(WIO_BUZZER, OUTPUT);
-
-    //Initialize serial
-    Serial.begin(115200);
-    
-    // Init IMU
-    lis.begin(Wire1);
-    lis.setOutputDataRate(LIS3DHTR_DATARATE_25HZ); // Setting output data rage to 25Hz, can be set up tp 5kHz
-    lis.setFullScaleRange(LIS3DHTR_RANGE_2G);      // Setting scale range to 2g, select from 2,4,8,16g
-
-    char buf[42];
-    sprintf(buf, "Connecting to SSID: %s", ssid);
-    lcd_log_line(buf);
-    Serial.print(buf);
-    Serial.println(ssid);
-    WiFi.begin(ssid, password);
-
-    // attempt to connect to Wifi network:
-    while (WiFi.status() != WL_CONNECTED)
+    is_operation_complete = az_iot_provisioning_client_operation_complete(operation_status);
+    if (!is_operation_complete)
     {
-        Serial.print(".");
-        // wait 1 second for re-trying
-        delay(1000);
-    }
-    lcd_log_line("> SUCCESS.");
-    Serial.println("> SUCCESS.");
+        Serial.println("Operation is still pending.");
 
-    wifi_client.setCACert(baltimore_root_ca);
+        char query_status_topic_buffer[256];
+        if (az_failed(az_iot_provisioning_client_query_status_get_publish_topic(
+            &provisioning_client,
+            &response,
+            query_status_topic_buffer,
+            sizeof(query_status_topic_buffer),
+            NULL)))
+        {
+            Serial.println("Unable to get query status publish");
+            return;
+        }
 
+        Serial.print("Querying after ");
+        Serial.print(response.retry_after_seconds);
+        Serial.println(" seconds...");
+        delay(response.retry_after_seconds * 1000);
 
+        mqtt_client.publish(query_status_topic_buffer, "");
 
-
-
-
-    // DPS
-
-    az_span global_provisioning_endpoint = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT);
-    az_span id_scope = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_ID_SCOPE);
-    az_span registration_id = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_DEVICE_ID);
-    if (az_failed(az_iot_provisioning_client_init(&provisioning_client, global_provisioning_endpoint, id_scope, registration_id, NULL)))
-    {
-        Serial.println("Failed to initialize provisioning client");
-        return;
-    }
-
-    char mqtt_client_id_buffer[128];
-    if (az_failed(az_iot_provisioning_client_get_client_id(&provisioning_client, mqtt_client_id_buffer, sizeof(mqtt_client_id_buffer), NULL)))
-    {
-        Serial.println("Failed to get MQTT client id");
-        return;
-    }
-
-    ntp.begin();
-    uint32_t expiration = ntp.epoch() + 3600;
-    if (generateSasTokenDPS(&provisioning_client, IOT_CONFIG_DEVICE_KEY, expiration, sas_token, sizeofarray(sas_token)) != 0)
-    {
-        Serial.println("Failed generating MQTT password");
-        return;
-    }
-
-    static char mqtt_client_username_buffer[128];
-    if (az_failed(az_iot_provisioning_client_get_user_name(
-        &provisioning_client,
-        mqtt_client_username_buffer,
-        sizeof(mqtt_client_username_buffer),
-        NULL)))
-    {
-        Serial.println("Failed to get MQTT username");
-        return;
-    }
-
-    Serial.print("Endpoint = ");
-    Serial.println((const char*)az_span_ptr(global_provisioning_endpoint));
-    Serial.print("Id scope = ");
-    Serial.println((const char*)az_span_ptr(id_scope));
-    Serial.print("Registration id = ");
-    Serial.println((const char*)az_span_ptr(registration_id));
-    Serial.println();
-    Serial.print("Client id = ");
-    Serial.println(mqtt_client_id_buffer);
-    Serial.print("Username = ");
-    Serial.println(mqtt_client_username_buffer);
-    Serial.print("Password = ");
-    Serial.println(sas_token);
-
-    mqtt_client.setServer(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT_HOST, IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT_PORT);
-    mqtt_client.setCallback(callbackDPS);
-    mqtt_client.setBufferSize(MQTT_PACKET_SIZE);
-    if (!mqtt_client.connect(mqtt_client_id_buffer, mqtt_client_username_buffer, sas_token))
-    {
-        Serial.println("ERROR: mqtt_client.connect()");
-        return;
-    }
-
-    mqtt_client.subscribe(AZ_IOT_PROVISIONING_CLIENT_REGISTER_SUBSCRIBE_TOPIC);
-
-    static char register_publish_topic_buffer[128];
-    if (az_failed(az_iot_provisioning_client_register_get_publish_topic(
-        &provisioning_client,
-        register_publish_topic_buffer,
-        sizeof(register_publish_topic_buffer),
-        NULL)))
-    {
-        Serial.println("Failed to get MQTT register publish topic");
-        return;
-    }
-
-    Serial.print("register topic = ");
-    Serial.println(register_publish_topic_buffer);
-    mqtt_client.publish(register_publish_topic_buffer, "");
-
-
-    while (true) mqtt_client.loop();
-
-
-
-
-
-
-
-    mqtt_client.setServer(server, 8883);
-    mqtt_client.setCallback(callback);
-    mqtt_client.setBufferSize(MQTT_PACKET_SIZE); // This is important! The default buffer size of the PubSubClient MQTT library is too small for e.g. the connection packets.
-
-    // Initialize the Azure IoT Hub client with the hub host endpoint and the default connection options
-    az_iot_hub_client_options options = az_iot_hub_client_options_default();
-    // This is optional, but allows to leverage IoT Plug and Play
-    options.model_id = model_id;
-
-    if (az_failed(az_iot_hub_client_init(
-        &iot_hub_client,
-        az_span_init((uint8_t *)server, strlen(server)),
-        az_span_init((uint8_t *)deviceId, strlen(deviceId)),
-        &options)))
-    {
-        Serial.println("Failed initializing Azure IoT Hub client");
-        return;
-    }
-
-    ntp.begin();
-
-    // The SAS token is valid for 1 hour by default.
-    expiration = ntp.epoch() + 3600;
-    // After one hour the sample must be restarted, or the client won't be able
-    // to connect/stay connected to the Azure IoT Hub.
-    if (generateSasToken(&iot_hub_client, deviceKey, expiration, sas_token, sizeofarray(sas_token)) != 0)
-    {
-        Serial.println("Failed generating MQTT password");
-    }
-    else if (connectToAzureIoTHub(&iot_hub_client) == 0)
-    {
-        is_ready_to_send = true;
+        Serial.println("Client sent operation query message.");
     }
 }
 
@@ -495,6 +367,206 @@ static az_result send_telemetry()
     mqtt_client.publish(telemetry_topic, az_span_ptr(out_payload), az_span_size(out_payload), false);
 
     return AZ_OK;
+}
+
+void setup()
+{
+    tft.begin();
+    tft.setRotation(3);
+    tft.fillScreen(TFT_WHITE);
+    tft.setFreeFont(&LCD_FONT);
+    tft.setTextColor(TFT_BLACK);
+
+    pinMode(WIO_BUZZER, OUTPUT);
+
+    //Initialize serial
+    Serial.begin(115200);
+    
+    // Init IMU
+    lis.begin(Wire1);
+    lis.setOutputDataRate(LIS3DHTR_DATARATE_25HZ); // Setting output data rage to 25Hz, can be set up tp 5kHz
+    lis.setFullScaleRange(LIS3DHTR_RANGE_2G);      // Setting scale range to 2g, select from 2,4,8,16g
+
+    char buf[20 + strlen(ssid) + 1];
+    snprintf(buf, sizeof(buf), "Connecting to SSID: %s", ssid);
+    lcd_log_line(buf);
+    Serial.println(buf);
+    WiFi.begin(ssid, password);
+
+    // attempt to connect to Wifi network:
+    while (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.print(".");
+        // wait 1 second for re-trying
+        delay(1000);
+    }
+    lcd_log_line("> SUCCESS.");
+    Serial.println("> SUCCESS.");
+
+    wifi_client.setCACert(baltimore_root_ca);
+
+
+
+
+
+
+    // DPS
+
+    // create_and_configure_mqtt_client()
+
+    az_span global_provisioning_endpoint = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT);
+    az_span id_scope = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_ID_SCOPE);
+    az_span registration_id = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_DEVICE_ID);
+    if (az_failed(az_iot_provisioning_client_init(&provisioning_client, global_provisioning_endpoint, id_scope, registration_id, NULL)))
+    {
+        Serial.println("Failed to initialize provisioning client");
+        return;
+    }
+
+    char mqtt_client_id_buffer[128];
+    if (az_failed(az_iot_provisioning_client_get_client_id(&provisioning_client, mqtt_client_id_buffer, sizeof(mqtt_client_id_buffer), NULL)))
+    {
+        Serial.println("Failed to get MQTT client id");
+        return;
+    }
+
+    ntp.begin();
+    uint32_t expiration = ntp.epoch() + 3600;
+    if (generateSasTokenDPS(&provisioning_client, IOT_CONFIG_DEVICE_KEY, expiration, sas_token, sizeofarray(sas_token)) != 0)
+    {
+        Serial.println("Failed generating MQTT password");
+        return;
+    }
+
+    // connect_mqtt_client_to_provisioning_service()
+
+    static char mqtt_client_username_buffer[128];
+    if (az_failed(az_iot_provisioning_client_get_user_name(
+        &provisioning_client,
+        mqtt_client_username_buffer,
+        sizeof(mqtt_client_username_buffer),
+        NULL)))
+    {
+        Serial.println("Failed to get MQTT username");
+        return;
+    }
+
+    Serial.print("Endpoint = ");
+    Serial.println((const char*)az_span_ptr(global_provisioning_endpoint));
+    Serial.print("Id scope = ");
+    Serial.println((const char*)az_span_ptr(id_scope));
+    Serial.print("Registration id = ");
+    Serial.println((const char*)az_span_ptr(registration_id));
+    Serial.println();
+    Serial.print("Client id = ");
+    Serial.println(mqtt_client_id_buffer);
+    Serial.print("Username = ");
+    Serial.println(mqtt_client_username_buffer);
+    Serial.print("Password = ");
+    Serial.println("*");
+
+    mqtt_client.setServer(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT_HOST, IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT_PORT);
+    mqtt_client.setCallback(callbackDPS);
+    mqtt_client.setBufferSize(MQTT_PACKET_SIZE);
+    if (!mqtt_client.connect(mqtt_client_id_buffer, mqtt_client_username_buffer, sas_token))
+    {
+        Serial.println("ERROR: mqtt_client.connect()");
+        return;
+    }
+
+    // subscribe_mqtt_client_to_provisioning_service_topics()
+
+    mqtt_client.subscribe(AZ_IOT_PROVISIONING_CLIENT_REGISTER_SUBSCRIBE_TOPIC);
+
+    // register_device_with_provisioning_service()
+
+    static char register_publish_topic_buffer[128];
+    if (az_failed(az_iot_provisioning_client_register_get_publish_topic(
+        &provisioning_client,
+        register_publish_topic_buffer,
+        sizeof(register_publish_topic_buffer),
+        NULL)))
+    {
+        Serial.println("Failed to get MQTT register publish topic");
+        return;
+    }
+
+    Serial.print("register topic = ");
+    Serial.println(register_publish_topic_buffer);
+    mqtt_client.publish(register_publish_topic_buffer, "");
+
+    // receive_device_registration_status()
+
+    while (!is_operation_complete) mqtt_client.loop();
+
+    if (operation_status == AZ_IOT_PROVISIONING_STATUS_ASSIGNED) // Successful assignment
+    {
+        char hostname[az_span_size(response.registration_result.assigned_hub_hostname) + 1];
+        az_span_to_str(hostname, sizeof(hostname), response.registration_result.assigned_hub_hostname);
+        char device_id[az_span_size(response.registration_result.device_id) + 1];
+        az_span_to_str(device_id, sizeof(device_id), response.registration_result.device_id);
+
+        Serial.println("Device provisioned:");
+        Serial.print("Hub Hostname:");
+        Serial.println(hostname);
+        Serial.print("Device Id:");
+        Serial.println(device_id);
+    }
+    else
+    {
+        Serial.println("Device provisioning failed:");
+        return;
+    }
+
+    while (!is_operation_complete) mqtt_client.loop();
+
+    // disconnect_mqtt_client_from_provisioning_service()
+
+    mqtt_client.disconnect();
+
+
+
+
+
+
+    char server_from_dps[az_span_size(response.registration_result.assigned_hub_hostname) + 1];
+    az_span_to_str(server_from_dps, sizeof(server_from_dps), response.registration_result.assigned_hub_hostname);
+    char device_id_from_dps[az_span_size(response.registration_result.device_id) + 1];
+    az_span_to_str(device_id_from_dps, sizeof(device_id_from_dps), response.registration_result.device_id);
+
+    mqtt_client.setServer(server_from_dps, 8883);
+    mqtt_client.setCallback(callback);
+    mqtt_client.setBufferSize(MQTT_PACKET_SIZE); // This is important! The default buffer size of the PubSubClient MQTT library is too small for e.g. the connection packets.
+
+    // Initialize the Azure IoT Hub client with the hub host endpoint and the default connection options
+    az_iot_hub_client_options options = az_iot_hub_client_options_default();
+    // This is optional, but allows to leverage IoT Plug and Play
+    // options.model_id = model_id;
+
+    if (az_failed(az_iot_hub_client_init(
+        &iot_hub_client,
+        response.registration_result.assigned_hub_hostname,
+        response.registration_result.device_id,
+        &options)))
+    {
+        Serial.println("Failed initializing Azure IoT Hub client");
+        return;
+    }
+
+    // ntp.begin();
+
+    // The SAS token is valid for 1 hour by default.
+    // expiration = ntp.epoch() + 3600;
+    // After one hour the sample must be restarted, or the client won't be able
+    // to connect/stay connected to the Azure IoT Hub.
+    if (generateSasToken(&iot_hub_client, device_id_from_dps, expiration, sas_token, sizeofarray(sas_token)) != 0)
+    {
+        Serial.println("Failed generating MQTT password");
+    }
+    else if (connectToAzureIoTHub(&iot_hub_client) == 0)
+    {
+        is_ready_to_send = true;
+    }
 }
 
 void loop()
