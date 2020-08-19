@@ -14,8 +14,8 @@
 
 #define ONE_HOUR_IN_SECS 3600
 
-static uint8_t signature[1024];
-static unsigned char encrypted_signature[64];
+static uint8_t signature[256];
+static unsigned char encrypted_signature[32];       // SHA-256
 static unsigned char base64_decoded_device_key[64];
 
 int generateSasToken(const az_iot_hub_client *iot_hub_client, const char *device_key, uint32_t expiration, char *sas_token, size_t size)
@@ -72,56 +72,45 @@ int generateSasToken(const az_iot_hub_client *iot_hub_client, const char *device
   return 0;
 }
 
-int generateSasTokenDPS(const az_iot_provisioning_client *provisioning_client, const char *device_key, uint32_t expiration, char *sas_token, size_t size)
+int generateSasTokenDPS(const az_iot_provisioning_client* provisioning_client, const char* device_key, uint32_t expiration, char* sas_token, size_t sas_token_size)
 {
-  az_span signature_span = az_span_init((uint8_t *)signature, sizeofarray(signature));
-  az_span out_signature_span;
-
   // Get signature
-  if (az_failed(az_iot_provisioning_client_sas_get_signature(
-          provisioning_client, expiration, signature_span, &out_signature_span)))
-  {
-    return 1;
-  }
+  // <-- provisioning_client, expiration
+  // --> out_signature_span
+  az_span signature_span = az_span_init((uint8_t*)signature, sizeof(signature));
+  az_span out_signature_span;
+  if (az_failed(az_iot_provisioning_client_sas_get_signature(provisioning_client, expiration, signature_span, &out_signature_span))) return 1;
 
   // Base64-decode device key
+  // <-- device_key
+  // --> base64_decoded_device_key
   size_t base64_decoded_device_key_length;
-  mbedtls_base64_decode(base64_decoded_device_key, sizeof(base64_decoded_device_key), &base64_decoded_device_key_length, (unsigned char *)device_key, strlen(device_key));
-
-  if (base64_decoded_device_key_length == 0)
-  {
-    return 1;
-  }
+  if (mbedtls_base64_decode(base64_decoded_device_key, sizeof(base64_decoded_device_key), &base64_decoded_device_key_length, (unsigned char*)device_key, strlen(device_key)) != 0) return 1;
+  if (base64_decoded_device_key_length == 0) return 1;
 
   // SHA-256 encrypt
+  // <-- base64_decoded_device_key
+  // <-- out_signature_span
+  // --> encrypted_signature
   mbedtls_md_context_t ctx;
-  mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-
-  mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1); //use hmac
-  mbedtls_md_hmac_starts(&ctx, base64_decoded_device_key, base64_decoded_device_key_length);
-  mbedtls_md_hmac_update(&ctx, az_span_ptr(out_signature_span), az_span_size(out_signature_span));
-  mbedtls_md_hmac_finish(&ctx, encrypted_signature);
+  const mbedtls_md_type_t md_type{ MBEDTLS_MD_SHA256 };
+  if (mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1) != 0) return 1;
+  if (mbedtls_md_hmac_starts(&ctx, base64_decoded_device_key, base64_decoded_device_key_length) != 0) return 1;
+  if (mbedtls_md_hmac_update(&ctx, az_span_ptr(out_signature_span), az_span_size(out_signature_span)) != 0) return 1;
+  if (mbedtls_md_hmac_finish(&ctx, encrypted_signature) != 0) return 1;
 
   // Base64 encode encrypted signature
-  char b64enc_hmacsha256_signature[64];
-  size_t encrypted_sig_length;
-  mbedtls_base64_encode((unsigned char *)b64enc_hmacsha256_signature, 64, &encrypted_sig_length, encrypted_signature, mbedtls_md_get_size(mbedtls_md_info_from_type(md_type)));
-
-  az_span b64enc_hmacsha256_signature_span = az_span_init(
-      (uint8_t *)b64enc_hmacsha256_signature, encrypted_sig_length);
+  // <-- encrypted_signature
+  // --> b64enc_hmacsha256_signature
+  char b64enc_hmacsha256_signature[az_span_size(out_signature_span) + 1];
+  size_t b64enc_hmacsha256_signature_length;
+  if (mbedtls_base64_encode((unsigned char*)b64enc_hmacsha256_signature, sizeof(b64enc_hmacsha256_signature), &b64enc_hmacsha256_signature_length, encrypted_signature, mbedtls_md_get_size(mbedtls_md_info_from_type(md_type))) != 0) return 1;
 
   // URl-encode base64 encoded encrypted signature
-  if (az_failed(az_iot_provisioning_client_sas_get_password(
-          provisioning_client,
-          b64enc_hmacsha256_signature_span,
-          expiration,
-          AZ_SPAN_NULL,
-          sas_token,
-          size,
-          NULL)))
-  {
-    return 1;
-  }
+  // <-- provisioning_client, b64enc_hmacsha256_signature, expiration
+  // --> sas_token
+  az_span b64enc_hmacsha256_signature_span = az_span_init((uint8_t*)b64enc_hmacsha256_signature, b64enc_hmacsha256_signature_length);
+  if (az_failed(az_iot_provisioning_client_sas_get_password(provisioning_client, b64enc_hmacsha256_signature_span, expiration, AZ_SPAN_NULL, sas_token, sas_token_size, NULL))) return 1;
 
   return 0;
 }
