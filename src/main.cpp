@@ -559,7 +559,7 @@ void setup()
     // expiration = ntp.epoch() + 3600;
     // After one hour the sample must be restarted, or the client won't be able
     // to connect/stay connected to the Azure IoT Hub.
-    if (generateSasToken(&iot_hub_client, device_id_from_dps, expiration, sas_token, sizeofarray(sas_token)) != 0)
+    if (generateSasToken(&iot_hub_client, IOT_CONFIG_DEVICE_KEY, expiration, sas_token, sizeofarray(sas_token)) != 0)
     {
         Serial.println("Failed generating MQTT password");
     }
