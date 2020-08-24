@@ -2,7 +2,7 @@
   "@context": "dtmi:dtdl:context;2",
   "@id": "dtmi:seeed:wioterminal;1",
   "@type": "Interface",
-  "displayName": "Seeed Studio Wio Terminal",
+  "displayName": "Seeed Wio Terminal",
   "contents": [
     {
       "@type": [
@@ -10,23 +10,23 @@
         "Acceleration"
       ],
       "unit": "gForce",
-      "name": "imu",
+      "name": "accel",
       "schema": {
         "@type": "Object",
         "fields": [
           {
             "name": "x",
-            "displayName": "IMU X",
+            "displayName": "Accel X",
             "schema": "double"
           },
           {
             "name": "y",
-            "displayName": "IMU Y",
+            "displayName": "Accel Y",
             "schema": "double"
           },
           {
             "name": "z",
-            "displayName": "IMU Z",
+            "displayName": "Accel Z",
             "schema": "double"
           }
         ]
