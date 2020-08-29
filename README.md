@@ -1,9 +1,7 @@
-# Welcome to wioterminal-azureiothub-sample 👋
+# Welcome to wioterminal-azureiot-example
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](/LICENSE)
-[![Twitter: kartben](https://img.shields.io/twitter/follow/kartben.svg?style=social)](https://twitter.com/kartben)
-[![PlatformIO CI](https://github.com/kartben/wioterminal-azureiothub-sample/workflows/PlatformIO%20CI/badge.svg)](https://github.com/kartben/wioterminal-azureiothub-sample/actions?query=workflow%3A%22PlatformIO+CI%22)
 
-This sample application shows you how to connect your [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) from Seeed Studio to [Azure IoT Hub](https://azure.microsoft.com/services/iot-hub). It is built on top of the [Azure SDK for Embedded C](https://github.com/Azure/azure-sdk-for-c), a small footprint, easy-to-port library for communicating with Azure services.
+This sample application shows you how to connect your [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) from Seeed to [Azure IoT Hub](https://azure.microsoft.com/services/iot-hub). It is built on top of the [Azure SDK for Embedded C](https://github.com/Azure/azure-sdk-for-c), a small footprint, easy-to-port library for communicating with Azure services.
 
 As the Wio Terminal is one of PlatformIO's (many!) supported platforms, the sample is conveniently made available as a PlatformIO project. This means that you don't have to worry about installing the [multiple Arduino libraries](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/) the Wio Terminal requires for Wi-Fi & TLS, and you don't need to manually install any other third-party library either! All dependencies are automatically fetched from Github by the PlatformIO Library Manager.
 
@@ -15,39 +13,45 @@ As the Wio Terminal is one of PlatformIO's (many!) supported platforms, the samp
 
 ## Running the sample
 
-In order to run the sample, update the macro declarations in [``config.h``](include/config.h) with your Wi-Fi SSID and password, as well as IoT Hub credentials (IoT hostname, device ID, and device key).
+In order to run the sample, update the macro declarations in [``config.h``](include/config.h) with your Wi-Fi SSID and password, as well as IoT Hub credentials (Azure IoT Hub host name, device id, and symmetric key).
 
 ```cpp
-// Wifi
-#define IOT_CONFIG_WIFI_SSID            "SSID"
-#define IOT_CONFIG_WIFI_PASSWORD        "PWD"
+//#define USE_DPS
 
-// Azure IoT
-#define IOT_CONFIG_IOTHUB_FQDN          "[your Azure IoT host name].azure-devices.net"
-#define IOT_CONFIG_DEVICE_ID            "Device ID"
-#define IOT_CONFIG_DEVICE_KEY           "Device Key"
+// Wi-Fi
+#define IOT_CONFIG_WIFI_SSID			"[wifi ssid]"
+#define IOT_CONFIG_WIFI_PASSWORD		"[wifi password]"
+
+#if !defined(USE_DPS)
+// Azure IoT Hub
+#define IOT_CONFIG_IOTHUB			"[Azure IoT Hub host name].azure-devices.net"
+#define IOT_CONFIG_DEVICE_ID			"[device id]"
+#define IOT_CONFIG_SYMMETRIC_KEY		"[symmetric key]"
+#define IOT_CONFIG_MODEL_ID			"dtmi:seeedkk:wioterminal:wioterminal_azureiot_example;1"
+#else
+// Azure IoT Hub DPS
+#define IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT	"global.azure-devices-provisioning.net"
+#define IOT_CONFIG_ID_SCOPE			"[id scope]"
+#define IOT_CONFIG_REGISTRATION_ID		"[device id]"
+#define IOT_CONFIG_SYMMETRIC_KEY		"[symmetric key]"
+#define IOT_CONFIG_MODEL_ID			"dtmi:seeedkk:wioterminal:wioterminal_azureiot_example;1"
+#endif // USE_DPS
 ```
 
 Use the [PlatformIO IDE](https://marketplace.visualstudio.com/items?itemName=platformio.platformio-ide) (VS Code extension) or the [PlatformIO command-line interface](https://platformio.org/install/cli) to deploy the application to your Wio Terminal. 
 
 Once running, the sample will connect to IoT Hub and: 
 
-* send **telemetry**—the acceleration values from the IMU sensor—every 2 second.
+* send **telemetry**—the acceleration values from the 3-axis acceleration sensor—every 2 second.
 * listen to a `ringBuzzer` **command** that, when triggered from the Cloud will... ring the buzzer! The duration is provided as a command parameter.
 
 ## Testing the sample
 
 You can use the [Azure IoT Explorer](https://github.com/Azure/azure-iot-explorer/releases) to test that your Wio Terminal is properly connected to Azure IoT Hub, i.e that it is regularly sending telemetry data, and responding to commands.
 
-Since the IoT Plug and Play model ID used in this sample does not correspond to any official/certified model, you will have to manually instruct Azure IoT Explorer about a local folder where the actual model corresponding to model ID `dtmi:seeed:wioterminal;1` resides. 
-
-You can either manually download [``wioterminal.json``](./wioterminal.json) or clone this repository, and then add the corresponding local folder in the "IoT Plug and Play Settings" of your Azure IoT Explorer. You'll find more information on configuring Azure IoT Explorer [here](https://docs.microsoft.com/en-us/azure/iot-pnp/howto-use-iot-explorer#connect-to-your-hub).
-
-![](assets/azure-iot-explorer-configure-model-location.png)
-
 ### Testing that telemetry is correctly sent to Azure IoT Hub
 
-To **check that telemetry data is correctly sent**, you will want to subscribe to the telemetry feed of your device. Since this code sample leverages IoT Plug and Play, Azure IoT Explorer will provide you with extra information regarding the data model for your IMU sensor data (e.g the unit of measurement being "g") if you enable the "Show modeled events" option.
+To **check that telemetry data is correctly sent**, you will want to subscribe to the telemetry feed of your device. Since this code sample leverages IoT Plug and Play, Azure IoT Explorer will provide you with extra information regarding the data model for your acceleration sensor data (e.g the unit of measurement being "g") if you enable the "Show modeled events" option.
 
 ![](assets/azure-iot-explorer-telemetry.gif)
 
@@ -67,7 +71,7 @@ You can read more on the Azure IoT client library [here](https://github.com/Azur
   * Since the generated token has an expiration date (typically set to a few hours in the future), **we need to know the current date and time**. We use an [NTP](https://github.com/sstaub/NTP) library to get the current time from a time server.
   * The token includes an **HMAC-SHA256 signature string that needs to be base64-encoded**. Luckily, the [recommended WiFi+TLS stack](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/#libraries-installation) of the Wio Terminal already includes Mbed TLS, making it relatively simple to compute HMAC signatures (ex. `mbedtls_md_hmac_starts`) and perform base64 encoding (ex. `mbedtls_base64_encode`).
 * The Azure IoT client libraries help with crafting MQTT topics that follow the [Azure IoT conventions](https://docs.microsoft.com/en-us/azure/iot-hub/iot-hub-mqtt-support), but you still need to **provide your own MQTT library**. In fact, that is a major difference with the historical Azure IoT C SDK, for which the MQTT implementation was baked into it. Since it is widely supported and just worked out-of-the-box, this sample uses the [`PubSubClient`](https://github.com/knolleary/pubsubclient) MQTT library from [Nick O'Leary](https://github.com/knolleary).
-* And of course, one has to implement their own **application logic**. For this sample application, this meant using the Wio Terminal's IMU driver to get acceleration data every 2 seconds, or hooking up the `ringBuzzer` command to actual embedded code that rings the buzzer.
+* And of course, one has to implement their own **application logic**. For this sample application, this meant using the Wio Terminal's acceleration sensor driver to get acceleration data every 2 seconds, or hooking up the `ringBuzzer` command to actual embedded code that rings the buzzer.
 
 ## Author
 
@@ -78,11 +82,16 @@ You can read more on the Azure IoT client library [here](https://github.com/Azur
 * Github: [@kartben](https://github.com/kartben)
 * LinkedIn: [@benjamincabe](https://linkedin.com/in/benjamincabe)
 
+👤 **Seeed K.K.**
+
+* Website: https://www.seeed.co.jp/
+* Twitter: [@SeeedJP](https://twitter.com/SeeedJP)
+
 ## 🤝 Contributing
 
 Contributions, issues and feature requests are welcome!
 
-Feel free to check [issues page](https://github.com/kartben/wioterminal-azureiothub-sample/issues).
+Feel free to check [issues page](https://github.com/SeeedJP/wioterminal-azureiot-example/issues).
 
 ## Show your support
 
@@ -91,7 +100,8 @@ Give a ⭐️ if this project helped you!
 
 ## 📝 License
 
-Copyright &copy; 2020 [Benjamin Cabé](https://github.com/kartben).
+Copyright &copy; 2020 [Benjamin Cabé](https://github.com/kartben).  
+Copyright &copy; 2020 Seeed K.K.
 
 This project is [MIT](/LICENSE) licensed.
 
