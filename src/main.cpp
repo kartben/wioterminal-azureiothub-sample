@@ -20,7 +20,7 @@
 
 LIS3DHTR<TwoWire> AccelSensor;
 
-const char *baltimore_root_ca =
+const char* ROOT_CA_BALTIMORE =
 "-----BEGIN CERTIFICATE-----\n"
 "MIIDdzCCAl+gAwIBAgIEAgAAuTANBgkqhkiG9w0BAQUFADBaMQswCQYDVQQGEwJJ\n"
 "RTESMBAGA1UEChMJQmFsdGltb3JlMRMwEQYDVQQLEwpDeWJlclRydXN0MSIwIAYD\n"
@@ -45,8 +45,8 @@ const char *baltimore_root_ca =
 
 WiFiClientSecure wifi_client;
 PubSubClient mqtt_client(wifi_client);
-WiFiUDP wifiUdp;
-NTP ntp(wifiUdp);
+WiFiUDP wifi_udp;
+NTP ntp(wifi_udp);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 
@@ -122,7 +122,11 @@ static void MqttSubscribeCallbackDPS(char* topic, byte* payload, unsigned int le
 
 static int RegisterDeviceToDPS(const std::string& endpoint, const std::string& idScope, const std::string& registrationId, const std::string& symmetricKey, const uint64_t& expirationEpochTime, std::string* hubHost, std::string* deviceId)
 {
-    if (DpsClient.Init(endpoint, idScope, registrationId) != 0) return -1;
+    std::string endpointAndPort{ endpoint };
+    endpointAndPort += ":";
+    endpointAndPort += std::to_string(8883);
+
+    if (DpsClient.Init(endpointAndPort, idScope, registrationId) != 0) return -1;
 
     const std::string mqttClientId = DpsClient.GetMqttClientId();
     const std::string mqttUsername = DpsClient.GetMqttUsername();
@@ -142,9 +146,9 @@ static int RegisterDeviceToDPS(const std::string& endpoint, const std::string& i
     Log(" MQTT username = %s" DLM, mqttUsername.c_str());
     //Log(" MQTT password = %s" DLM, mqttPassword.c_str());
 
-    wifi_client.setCACert(baltimore_root_ca);
+    wifi_client.setCACert(ROOT_CA_BALTIMORE);
     mqtt_client.setBufferSize(MQTT_PACKET_SIZE);
-    mqtt_client.setServer(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT_HOST, IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT_PORT);
+    mqtt_client.setServer(endpoint.c_str(), 8883);
     mqtt_client.setCallback(MqttSubscribeCallbackDPS);
     if (!mqtt_client.connect(mqttClientId.c_str(), mqttUsername.c_str(), mqttPassword.c_str())) return -2;
 
@@ -204,8 +208,11 @@ static void MqttSubscribeCallbackHub(char* topic, byte* payload, unsigned int le
 
 static int ConnectToHub(az_iot_hub_client* iot_hub_client, const std::string& host, const std::string& deviceId, const std::string& symmetricKey, const uint64_t& expirationEpochTime)
 {
+    static std::string deviceIdCache;
+    deviceIdCache = deviceId;
+
     const az_span hostSpan{ az_span_init((uint8_t*)&host[0], host.size()) };
-    const az_span deviceIdSpan{ az_span_init((uint8_t*)&deviceId[0], deviceId.size()) };
+    const az_span deviceIdSpan{ az_span_init((uint8_t*)&deviceIdCache[0], deviceIdCache.size()) };
     az_iot_hub_client_options options = az_iot_hub_client_options_default();
     options.model_id = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_MODEL_ID);
     if (az_failed(az_iot_hub_client_init(iot_hub_client, hostSpan, deviceIdSpan, &options))) return -1;
@@ -227,6 +234,14 @@ static int ConnectToHub(az_iot_hub_client* iot_hub_client, const std::string& ho
     az_span encryptedSignatureSpan = az_span_init((uint8_t*)&encryptedSignature[0], encryptedSignature.size());
     if (az_failed(az_iot_hub_client_sas_get_password(iot_hub_client, encryptedSignatureSpan, expirationEpochTime, AZ_SPAN_NULL, mqttPassword, sizeof(mqttPassword), NULL))) return -3;
 
+    Log("Hub:" DLM);
+    Log(" Host = %s" DLM, host.c_str());
+    Log(" Device id = %s" DLM, deviceIdCache.c_str());
+    Log(" MQTT client id = %s" DLM, mqttClientId);
+    Log(" MQTT username = %s" DLM, mqttUsername);
+    //Log(" MQTT password = %s" DLM, mqttPassword);
+
+    wifi_client.setCACert(ROOT_CA_BALTIMORE);
     mqtt_client.setBufferSize(MQTT_PACKET_SIZE);
     mqtt_client.setServer(host.c_str(), 8883);
     mqtt_client.setCallback(MqttSubscribeCallbackHub);
@@ -254,7 +269,10 @@ static int ConnectToHub(az_iot_hub_client* iot_hub_client, const std::string& ho
 
 static az_result SendTelemetry()
 {
-    az_json_writer json_builder;
+    float accelX;
+    float accelY;
+    float accelZ;
+    AccelSensor.getAcceleration(&accelX, &accelY, &accelZ);
 
     char telemetry_topic[128];
     if (az_failed(az_iot_hub_client_telemetry_get_publish_topic(&HubClient, NULL, telemetry_topic, sizeof(telemetry_topic), NULL)))
@@ -263,26 +281,32 @@ static az_result SendTelemetry()
         return AZ_ERROR_NOT_SUPPORTED;
     }
 
-    float acc_x, acc_y, acc_z;
-    AccelSensor.getAcceleration(&acc_x, &acc_y, &acc_z);
-
+    az_json_writer json_builder;
     char telemetry_payload[80];
     AZ_RETURN_IF_FAILED(az_json_writer_init(&json_builder, AZ_SPAN_FROM_BUFFER(telemetry_payload), NULL));
     AZ_RETURN_IF_FAILED(az_json_writer_append_begin_object(&json_builder));
     AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_ACCEL)));
     AZ_RETURN_IF_FAILED(az_json_writer_append_begin_object(&json_builder));
     AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR("x")));
-    AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, acc_x, 3));
+    AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, accelX, 3));
     AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR("y")));
-    AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, acc_y, 3));
+    AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, accelY, 3));
     AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR("z")));
-    AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, acc_z, 3));
+    AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, accelZ, 3));
     AZ_RETURN_IF_FAILED(az_json_writer_append_end_object(&json_builder));
     AZ_RETURN_IF_FAILED(az_json_writer_append_end_object(&json_builder));
-    az_span out_payload;
-    out_payload = az_json_writer_get_bytes_used_in_destination(&json_builder);
+    const az_span out_payload{ az_json_writer_get_bytes_used_in_destination(&json_builder) };
 
-    mqtt_client.publish(telemetry_topic, az_span_ptr(out_payload), az_span_size(out_payload), false);
+    static int sendCount = 0;
+    if (!mqtt_client.publish(telemetry_topic, az_span_ptr(out_payload), az_span_size(out_payload), false))
+    {
+        Log("ERROR: Send telemetry %d" DLM, sendCount);
+    }
+    else
+    {
+        ++sendCount;
+        Log("Sent telemetry %d" DLM, sendCount);
+    }
 
     return AZ_OK;
 }
@@ -438,11 +462,21 @@ void setup()
     // Provisioning
 
     std::string hubHost;
-    std::string deviceId;
+    static std::string deviceId;
+
+#if defined(USE_DPS)
+
     if (RegisterDeviceToDPS(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT, IOT_CONFIG_ID_SCOPE, IOT_CONFIG_REGISTRATION_ID, IOT_CONFIG_SYMMETRIC_KEY, expiration, &hubHost, &deviceId) != 0)
     {
         Abort("RegisterDeviceToDPS()");
     }
+
+#else
+
+    hubHost = IOT_CONFIG_IOTHUB;
+    deviceId = IOT_CONFIG_DEVICE_ID;
+
+#endif // USE_DPS
 
     ////////////////////
     // Hub
@@ -455,13 +489,12 @@ void setup()
 
 void loop()
 {
-    ntp.update();
     mqtt_client.loop();
 
-    static unsigned long next_telemetry_send_time_ms = 0;
-    if (millis() > next_telemetry_send_time_ms)
+    static unsigned long nextTelemetrySendTime = 0;
+    if (millis() > nextTelemetrySendTime)
     {
         SendTelemetry();
-        next_telemetry_send_time_ms = millis() + TELEMETRY_FREQUENCY_MILLISECS;
+        nextTelemetrySendTime = millis() + TELEMETRY_FREQUENCY_MILLISECS;
     }
 }

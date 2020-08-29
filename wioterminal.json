@@ -1,7 +1,7 @@
 {
-  "@context": "dtmi:dtdl:context;2",
-  "@id": "dtmi:seeed:wioterminal;1",
+  "@id": "dtmi:seeedkk:wioterminal;1",
   "@type": "Interface",
+  "@context": "dtmi:dtdl:context;2",
   "displayName": "Seeed Wio Terminal",
   "contents": [
     {
@@ -9,8 +9,8 @@
         "Telemetry",
         "Acceleration"
       ],
-      "unit": "gForce",
       "name": "accel",
+      "displayName": "Acceleration",
       "schema": {
         "@type": "Object",
         "fields": [
@@ -30,17 +30,16 @@
             "schema": "double"
           }
         ]
-      }
+      },
+      "unit": "gForce"
     },
     {
       "@type": "Command",
       "name": "ringBuzzer",
       "displayName": "Ring buzzer",
-      "description": "Rings the Wio Terminal's built-in buzzer",
       "request": {
         "name": "duration",
         "displayName": "Duration",
-        "description": "Number of milliseconds to ring the buzzer for.",
         "schema": "integer"
       }
     }
