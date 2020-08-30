@@ -20,5 +20,7 @@
 #endif // USE_DPS
 
 #define TELEMETRY_FREQUENCY_MILLISECS		2000
-#define TELEMETRY_ACCEL						"accel"
+#define TELEMETRY_ACCEL_X					"accelX"
+#define TELEMETRY_ACCEL_Y					"accelY"
+#define TELEMETRY_ACCEL_Z					"accelZ"
 #define COMMAND_RING_BUZZER					"ringBuzzer"
