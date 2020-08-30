@@ -14,7 +14,7 @@
 // Azure IoT Hub DPS
 #define IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT	"global.azure-devices-provisioning.net"
 #define IOT_CONFIG_ID_SCOPE					"[id scope]"
-#define IOT_CONFIG_REGISTRATION_ID			"[device id]"
+#define IOT_CONFIG_REGISTRATION_ID			"[registration id]"
 #define IOT_CONFIG_SYMMETRIC_KEY			"[symmetric key]"
 #define IOT_CONFIG_MODEL_ID					"dtmi:seeedkk:wioterminal:wioterminal_azureiot_example;1"
 #endif // USE_DPS
