@@ -43,6 +43,8 @@ Since the IoT Plug and Play model ID used in this sample does not correspond to 
 
 You can either manually download [``wioterminal.json``](./wioterminal.json) or clone this repository, and then add the corresponding local folder in the "IoT Plug and Play Settings" of your Azure IoT Explorer. You'll find more information on configuring Azure IoT Explorer [here](https://docs.microsoft.com/en-us/azure/iot-pnp/howto-use-iot-explorer#connect-to-your-hub).
 
+> Note, as at September 2020, IoT Plug and Play is currently available on IoT hubs created in the Central US, North Europe, and East Japan regions. IoT Plug and Play support is not included in basic-tier IoT hubs.
+
 ![](assets/azure-iot-explorer-configure-model-location.png)
 
 ### Testing that telemetry is correctly sent to Azure IoT Hub
