@@ -161,7 +161,8 @@ static int RegisterDeviceToDPS(const std::string& endpoint, const std::string& i
         if (DpsPublishTimeOfQueryStatus > 0 && millis() >= DpsPublishTimeOfQueryStatus)
         {
             mqtt_client.publish(DpsClient.GetQueryStatusPublishTopic().c_str(), "");
-            Log("Client sent operation query message", DLM);
+            Log("Client sent operation query message" DLM);
+            DpsPublishTimeOfQueryStatus = 0;
         }
     }
 
