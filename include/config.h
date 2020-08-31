@@ -9,14 +9,14 @@
 #define IOT_CONFIG_IOTHUB					"[Azure IoT Hub host name].azure-devices.net"
 #define IOT_CONFIG_DEVICE_ID				"[device id]"
 #define IOT_CONFIG_SYMMETRIC_KEY			"[symmetric key]"
-#define IOT_CONFIG_MODEL_ID					"dtmi:seeedkk:wioterminal:wioterminal_azureiot_example;1"
+#define IOT_CONFIG_MODEL_ID					"dtmi:seeedkk:wioterminal:wioterminal_aziot_example;1"
 #else
 // Azure IoT Hub DPS
 #define IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT	"global.azure-devices-provisioning.net"
 #define IOT_CONFIG_ID_SCOPE					"[id scope]"
 #define IOT_CONFIG_REGISTRATION_ID			"[registration id]"
 #define IOT_CONFIG_SYMMETRIC_KEY			"[symmetric key]"
-#define IOT_CONFIG_MODEL_ID					"dtmi:seeedkk:wioterminal:wioterminal_azureiot_example;1"
+#define IOT_CONFIG_MODEL_ID					"dtmi:seeedkk:wioterminal:wioterminal_aziot_example;1"
 #endif // USE_DPS
 
 #define TELEMETRY_FREQUENCY_MILLISECS		2000

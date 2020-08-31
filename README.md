@@ -1,4 +1,4 @@
-# Welcome to wioterminal-azureiot-example
+# Welcome to wioterminal-aziot-example
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](/LICENSE)
 
 This application shows you how to connect your [Wio Terminal](https://www.seeedstudio.com/Wio-Terminal-p-4509.html) from Seeed to [Azure IoT Hub](https://azure.microsoft.com/services/iot-hub). It is built on top of the [Azure SDK for Embedded C](https://github.com/Azure/azure-sdk-for-c), a small footprint, easy-to-port library for communicating with Azure services.
@@ -123,7 +123,7 @@ You can read more on the Azure IoT client library [here](https://github.com/Azur
 
 Contributions, issues and feature requests are welcome!
 
-Feel free to check [issues page](https://github.com/SeeedJP/wioterminal-azureiot-example/issues).
+Feel free to check [issues page](https://github.com/SeeedJP/wioterminal-aziot-example/issues).
 
 ## Show your support
 
