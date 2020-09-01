@@ -153,7 +153,7 @@ static int RegisterDeviceToDPS(const std::string& endpoint, const std::string& i
     if (!mqtt_client.connect(mqttClientId.c_str(), mqttUsername.c_str(), mqttPassword.c_str())) return -2;
 
     mqtt_client.subscribe(registerSubscribeTopic.c_str());
-    mqtt_client.publish(registerPublishTopic.c_str(), "");
+    mqtt_client.publish(registerPublishTopic.c_str(), "{payload:{\"modelId\":\"" IOT_CONFIG_MODEL_ID "\"}}");
 
     while (!DpsClient.IsRegisterOperationCompleted())
     {
