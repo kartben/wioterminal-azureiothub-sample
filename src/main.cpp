@@ -87,14 +87,9 @@ static void Log(const char* format, ...)
 ////////////////////////////////////////////////////////////////////////////////
 // Display
 
-#include <TFT_eSPI.h>
-#include "Free_Fonts.h"
+#include <LovyanGFX.hpp>
 
-#define LCD_FONT        FreeSans9pt7b
-#define LCD_LINE_HEIGHT 18
-
-static TFT_eSPI tft;
-static int DisplayCurrentTextLine = 0;
+static LGFX tft;
 
 static void DisplayPrintf(const char* format, ...)
 {
@@ -104,12 +99,7 @@ static void DisplayPrintf(const char* format, ...)
     va_end(arg);
 
     Log("%s\n", str.c_str());
-
-    tft.fillRect(0, DisplayCurrentTextLine * tft.height(), tft.width(), tft.height(), TFT_WHITE);
-    tft.drawString(str, 5, DisplayCurrentTextLine * LCD_LINE_HEIGHT);
-
-    DisplayCurrentTextLine++;
-    DisplayCurrentTextLine %= (tft.height() - 20) / LCD_LINE_HEIGHT;
+    tft.printf("%s\n", str.c_str());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -150,6 +140,7 @@ static int RegisterDeviceToDPS(const std::string& endpoint, const std::string& i
     mqtt_client.setBufferSize(MQTT_PACKET_SIZE);
     mqtt_client.setServer(endpoint.c_str(), 8883);
     mqtt_client.setCallback(MqttSubscribeCallbackDPS);
+    DisplayPrintf("Connecting to Azure IoT Hub DPS...");
     if (!mqtt_client.connect(mqttClientId.c_str(), mqttUsername.c_str(), mqttPassword.c_str())) return -2;
 
     mqtt_client.subscribe(registerSubscribeTopic.c_str());
@@ -298,12 +289,12 @@ static az_result SendTelemetry()
     static int sendCount = 0;
     if (!mqtt_client.publish(telemetry_topic, az_span_ptr(out_payload), az_span_size(out_payload), false))
     {
-        Log("ERROR: Send telemetry %d" DLM, sendCount);
+        DisplayPrintf("ERROR: Send telemetry %d", sendCount);
     }
     else
     {
         ++sendCount;
-        Log("Sent telemetry %d" DLM, sendCount);
+        DisplayPrintf("Sent telemetry %d", sendCount);
     }
 
     return AZ_OK;
@@ -423,10 +414,10 @@ void setup()
     // Init display
 
     tft.begin();
-    tft.setRotation(3);
-    tft.fillScreen(TFT_WHITE);
-    tft.setFreeFont(&LCD_FONT);
-    tft.setTextColor(TFT_BLACK);
+    tft.fillScreen(TFT_BLACK);
+    tft.setTextScroll(true);
+    tft.setTextColor(TFT_WHITE);
+    tft.setFont(&fonts::Font2);
 
     ////////////////////
     // Init I/O
