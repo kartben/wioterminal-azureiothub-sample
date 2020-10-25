@@ -27,6 +27,7 @@ Do "Create an IoT hub" section only.
 ### Configure Application
 
 1. Open `include/config.h` in text editor.
+1. Comment out `#define USE_CLI`.
 1. Modify **[wifi ssid]** to your Wi-Fi SSID.
 1. Modify **[wifi password]** to your Wi-Fi password.
 1. Modify **[Azure IoT Hub host name]** to hostname of your Azure IoT Hub.
@@ -61,6 +62,7 @@ Do "Link the IoT hub and your Device Provisioning Service" section only.
 ### Configure application
 
 1. Open `include/config.h` in text editor.
+1. Comment out `#define USE_CLI`.
 1. Uncomment `#define USE_DPS`.
 1. Modify **[wifi ssid]** to your Wi-Fi SSID.
 1. Modify **[wifi password]** to your Wi-Fi password.

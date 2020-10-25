@@ -1,7 +1,9 @@
 #include <Arduino.h>
 #include "Config.h"
+#include "Storage.h"
 #include "Signature.h"
 #include "AzureDpsClient.h"
+#include "CliMode.h"
 
 #include <LIS3DHTR.h>
 
@@ -406,9 +408,19 @@ static void MqttSubscribeCallbackHub(char* topic, byte* payload, unsigned int le
 void setup()
 {
     ////////////////////
-    // Init serial
+    // Load storage
+
+    Storage::Load();
+
+    ////////////////////
+    // Init I/O
 
     Serial.begin(115200);
+
+    pinMode(WIO_BUZZER, OUTPUT);
+    pinMode(WIO_KEY_A, INPUT_PULLUP);
+    pinMode(WIO_KEY_B, INPUT_PULLUP);
+    pinMode(WIO_KEY_C, INPUT_PULLUP);
 
     ////////////////////
     // Init display
@@ -420,9 +432,18 @@ void setup()
     tft.setFont(&fonts::Font2);
 
     ////////////////////
-    // Init I/O
+    // Enter configuration mode
 
-    pinMode(WIO_BUZZER, OUTPUT);
+    if (digitalRead(WIO_KEY_A) == LOW &&
+        digitalRead(WIO_KEY_B) == LOW &&
+        digitalRead(WIO_KEY_C) == LOW   )
+    {
+        DisplayPrintf("In configuration mode");
+        CliMode();
+    }
+
+    ////////////////////
+    // Init sensor
 
     AccelSensor.begin(Wire1);
     AccelSensor.setOutputDataRate(LIS3DHTR_DATARATE_25HZ);
@@ -453,7 +474,7 @@ void setup()
     std::string hubHost;
     static std::string deviceId;
 
-#if defined(USE_DPS)
+#if defined(USE_CLI) || defined(USE_DPS)
 
     if (RegisterDeviceToDPS(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT, IOT_CONFIG_ID_SCOPE, IOT_CONFIG_REGISTRATION_ID, IOT_CONFIG_SYMMETRIC_KEY, expiration, &hubHost, &deviceId) != 0)
     {
@@ -465,7 +486,7 @@ void setup()
     hubHost = IOT_CONFIG_IOTHUB;
     deviceId = IOT_CONFIG_DEVICE_ID;
 
-#endif // USE_DPS
+#endif // USE_CLI || USE_DPS
 
     ////////////////////
     // Hub
