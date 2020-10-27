@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "CliMode.h"
 #include "Storage.h"
+#include "Signature.h"
 
 #define END_CHAR        ('\r')
 #define TAB_CHAR        ('\t')
@@ -28,19 +29,21 @@ static void display_settings_command(int argc, char** argv);
 static void wifissid_command(int argc, char** argv);
 static void wifipwd_Command(int argc, char** argv);
 static void az_idscope_command(int argc, char** argv);
-static void az_deviceid_command(int argc, char** argv);
-static void az_saskey_command(int argc, char** argv);
+static void az_regid_command(int argc, char** argv);
+static void az_symkey_command(int argc, char** argv);
+static void az_iotc_command(int argc, char** argv);
 
 static const struct console_command cmds[] = 
 {
-  {"help"                  , "Help document"                                , help_command                   },
-  {"reset_factory_settings", "Reset factory settings"                       , reset_factory_settings_command },
-  {"show_settings"         , "Display settings"                             , display_settings_command       },
-  {"set_wifissid"          , "Set Wi-Fi SSID"                               , wifissid_command               },
-  {"set_wifipwd"           , "Set Wi-Fi password"                           , wifipwd_Command                },
-  {"set_az_idscope"        , "Set id scope of Azure IoT Central"            , az_idscope_command             },
-  {"set_az_deviceid"       , "Set device id of Azure IoT Central"           , az_deviceid_command            },
-  {"set_az_saskey"         , "Set SAS key of Azure IoT Central"             , az_saskey_command              },
+  {"help"                  , "Help document"                                  , help_command                   },
+  {"reset_factory_settings", "Reset factory settings"                         , reset_factory_settings_command },
+  {"show_settings"         , "Display settings"                               , display_settings_command       },
+  {"set_wifissid"          , "Set Wi-Fi SSID"                                 , wifissid_command               },
+  {"set_wifipwd"           , "Set Wi-Fi password"                             , wifipwd_Command                },
+  {"set_az_idscope"        , "Set id scope of Azure IoT DPS"                  , az_idscope_command             },
+  {"set_az_regid"          , "Set registration id of Azure IoT DPS"           , az_regid_command               },
+  {"set_az_symkey"         , "Set symmetric key of Azure IoT DPS"             , az_symkey_command              },
+  {"set_az_iotc"           , "Set connection information of Azure IoT Central", az_iotc_command                }
 };
 
 static const int cmd_count = sizeof(cmds) / sizeof(cmds[0]);
@@ -72,9 +75,9 @@ static void display_settings_command(int argc, char** argv)
 {
     Serial.printf("Wi-Fi SSID = %s" DLM, Storage::WiFiSSID.c_str());
     Serial.printf("Wi-Fi password = %s" DLM, Storage::WiFiPassword.c_str());
-    Serial.printf("Id scope of Azure IoT Central = %s" DLM, Storage::IdScope.c_str());
-    Serial.printf("Device id of Azure IoT Central = %s" DLM, Storage::RegistrationId.c_str());
-    Serial.printf("SAS key of Azure IoT Central = %s" DLM, Storage::SymmetricKey.c_str());
+    Serial.printf("Id scope of Azure IoT DPS = %s" DLM, Storage::IdScope.c_str());
+    Serial.printf("Registration id of Azure IoT DPS = %s" DLM, Storage::RegistrationId.c_str());
+    Serial.printf("Symmetric key of Azure IoT DPS = %s" DLM, Storage::SymmetricKey.c_str());
 }
 
 static void wifissid_command(int argc, char** argv)
@@ -109,7 +112,7 @@ static void az_idscope_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <Id scope>. Please provide the id scope of the Azure IoT Central." DLM, argv[0]);
+        Serial.printf("ERROR: Usage: %s <Id scope>. Please provide the id scope of the Azure IoT DPS." DLM, argv[0]);
         return;
     }
 
@@ -119,32 +122,48 @@ static void az_idscope_command(int argc, char** argv)
     Serial.print("Set id scope successfully." DLM);
 }
 
-static void az_deviceid_command(int argc, char** argv)
+static void az_regid_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <Device id>. Please provide the device id of the Azure IoT Central." DLM, argv[0]);
+        Serial.printf("ERROR: Usage: %s <Registration id>. Please provide the registraion id of the Azure IoT DPS." DLM, argv[0]);
         return;
     }
 
     Storage::RegistrationId = argv[1];
     Storage::Save();
 
-    Serial.print("Set device id successfully." DLM);
+    Serial.print("Set registration id successfully." DLM);
 }
 
-static void az_saskey_command(int argc, char** argv)
+static void az_symkey_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <SAS key>. Please provide the SAS key of the Azure IoT Central." DLM, argv[0]);
+        Serial.printf("ERROR: Usage: %s <Symmetric key>. Please provide the symmetric key of the Azure IoT DPS." DLM, argv[0]);
         return;
     }
 
     Storage::SymmetricKey = argv[1];
     Storage::Save();
 
-    Serial.print("Set SAS key successfully." DLM);
+    Serial.print("Set symmetric key successfully." DLM);
+}
+
+static void az_iotc_command(int argc, char** argv)
+{
+    if (argc != 4) 
+    {
+        Serial.printf("ERROR: Usage: %s <Id scope> <SAS key> <Device id>." DLM, argv[0]);
+        return;
+    }
+
+    Storage::IdScope = argv[1];
+    Storage::RegistrationId = argv[3];
+    Storage::SymmetricKey = ComputeDerivedSymmetricKey(argv[2], argv[3]);
+    Storage::Save();
+
+    Serial.print("Set connection information of Azure IoT Central successfully." DLM);
 }
 
 static bool CliGetInput(char* inbuf, int* bp)
