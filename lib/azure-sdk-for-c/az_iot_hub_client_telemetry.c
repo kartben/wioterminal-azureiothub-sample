@@ -1,13 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-#include <stdint.h>
-
-#include <az_iot_hub_client.h>
 #include <az_precondition.h>
-#include <az_precondition_internal.h>
 #include <az_result.h>
 #include <az_span.h>
+#include <az_precondition_internal.h>
+#include <az_result_internal.h>
+#include <az_iot_hub_client.h>
+
+#include <stdint.h>
 
 #include <_az_cfg.h>
 
@@ -18,7 +19,7 @@ static const az_span telemetry_topic_suffix = AZ_SPAN_LITERAL_FROM_STR("/message
 
 AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
     az_iot_hub_client const* client,
-    az_iot_hub_client_properties const* properties,
+    az_iot_message_properties const* properties,
     char* mqtt_topic,
     size_t mqtt_topic_size,
     size_t* out_mqtt_topic_length)
@@ -29,7 +30,7 @@ AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
 
   const az_span* const module_id = &(client->_internal.options.module_id);
 
-  az_span mqtt_topic_span = az_span_init((uint8_t*) mqtt_topic, (int32_t)mqtt_topic_size);
+  az_span mqtt_topic_span = az_span_create((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
   int32_t required_length = az_span_size(telemetry_topic_prefix)
       + az_span_size(client->_internal.device_id) + az_span_size(telemetry_topic_suffix);
   int32_t module_id_length = az_span_size(*module_id);
@@ -42,7 +43,8 @@ AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
     required_length += properties->_internal.properties_written;
   }
 
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(mqtt_topic_span, required_length + (int32_t)sizeof(null_terminator));
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(
+      mqtt_topic_span, required_length + (int32_t)sizeof(null_terminator));
 
   az_span remainder = az_span_copy(mqtt_topic_span, telemetry_topic_prefix);
   remainder = az_span_copy(remainder, client->_internal.device_id);
@@ -65,7 +67,7 @@ AZ_NODISCARD az_result az_iot_hub_client_telemetry_get_publish_topic(
 
   az_span_copy_u8(remainder, null_terminator);
 
-  if(out_mqtt_topic_length)
+  if (out_mqtt_topic_length)
   {
     *out_mqtt_topic_length = (size_t)required_length;
   }

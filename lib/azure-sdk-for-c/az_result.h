@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * @file az_result.h
+ * @file
  *
- * @brief az_result and facilities definition
+ * @brief Definition of #az_result and helper functions.
  *
  * @note You MUST NOT use any symbols (macros, functions, structures, enums, etc.)
  * prefixed with an underscore ('_') directly in your application code. These symbols
@@ -35,120 +35,134 @@ enum
   _az_ERROR_FLAG = (int32_t)0x80000000,
 };
 
+/**
+ * @brief The type represents the various success and error conditions.
+ *
+ * @note See the following `az_result` values from various headers:
+ * - #az_result_core
+ * - #az_result_iot
+ */
+typedef int32_t az_result;
+
+// az_result Bits:
+//   - 31 Severity (0 - success, 1 - failure).
+//   - 16..30 Facility.
+//   - 0..15 Code.
+
 #define _az_RESULT_MAKE_ERROR(facility, code) \
-  ((int32_t)(_az_ERROR_FLAG | ((int32_t)(facility) << 16) | (int32_t)(code)))
+  ((az_result)((uint32_t)_az_ERROR_FLAG | ((uint32_t)(facility) << 16U) | (uint32_t)(code)))
 
 #define _az_RESULT_MAKE_SUCCESS(facility, code) \
-  ((int32_t)(((int32_t)(facility) << 16) | (int32_t)(code)))
-
-#define AZ_RETURN_IF_FAILED(exp) \
-  do \
-  { \
-    az_result const _result = (exp); \
-    if (az_failed(_result)) \
-    { \
-      return _result; \
-    } \
-  } while (0)
-
-#define AZ_RETURN_IF_NOT_ENOUGH_SIZE(span, required_size) \
-  do \
-  { \
-    if (az_span_size(span) < required_size || required_size < 0) \
-    { \
-      return AZ_ERROR_INSUFFICIENT_SPAN_SIZE; \
-    } \
-  } while (0)
+  ((az_result)(((uint32_t)(facility) << 16U) | (uint32_t)(code)))
 
 /**
- * The type represents success and error conditions.
- * Bits:
- * - 31 Severity (0 - success, 1 - failure).
- * - 16..30 Facility.
- * - 0..15 Code.
+ * @brief The type represents the various #az_result success and error conditions specific to SDK
+ * Core.
  */
-typedef enum
+enum az_result_core
 {
-  // Core: Success results
-  AZ_OK = _az_RESULT_MAKE_SUCCESS(_az_FACILITY_CORE, 0), ///< Success.
-  AZ_CONTINUE = _az_RESULT_MAKE_SUCCESS(_az_FACILITY_CORE, 1),
+  // === Core: Success results ====
+  /// Success.
+  AZ_OK = _az_RESULT_MAKE_SUCCESS(_az_FACILITY_CORE, 0),
 
-  // Core: Error results
-  AZ_ERROR_CANCELED = _az_RESULT_MAKE_ERROR(
-      _az_FACILITY_CORE,
-      0), ///< A context was canceled, and a function had to return before result was ready.
+  // === Core: Error results ===
+  /// A context was canceled, and a function had to return before result was ready.
+  AZ_ERROR_CANCELED = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 0),
 
-  AZ_ERROR_ARG = _az_RESULT_MAKE_ERROR(
-      _az_FACILITY_CORE,
-      1), ///< Input argument does not comply with the requested range of values.
+  /// Input argument does not comply with the expected range of values.
+  AZ_ERROR_ARG = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 1),
 
-  AZ_ERROR_INSUFFICIENT_SPAN_SIZE = _az_RESULT_MAKE_ERROR(
-      _az_FACILITY_CORE,
-      2), ///< The size of the provided span is too small.
+  /// The destination size is too small for the operation.
+  AZ_ERROR_NOT_ENOUGH_SPACE = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 2),
 
-  AZ_ERROR_NOT_IMPLEMENTED
-  = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 3), ///< Requested functionality is not implemented.
+  /// Requested functionality is not implemented.
+  AZ_ERROR_NOT_IMPLEMENTED = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 3),
 
-  AZ_ERROR_ITEM_NOT_FOUND
-  = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 4), ///< Requested item was not found.
+  /// Requested item was not found.
+  AZ_ERROR_ITEM_NOT_FOUND = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 4),
 
-  AZ_ERROR_UNEXPECTED_CHAR
-  = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 5), ///< Input can't be successfully parsed.
+  /// Input can't be successfully parsed.
+  AZ_ERROR_UNEXPECTED_CHAR = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 5),
 
-  AZ_ERROR_EOF = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 6), ///< Unexpected end of the input data.
+  /// Unexpected end of the input data.
+  AZ_ERROR_UNEXPECTED_END = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 6),
 
+  /// Not supported.
   AZ_ERROR_NOT_SUPPORTED = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 7),
 
-  // Platform
-  AZ_ERROR_OUT_OF_MEMORY = _az_RESULT_MAKE_ERROR(
-      _az_FACILITY_PLATFORM,
-      2), ///< Dynamic memory allocation request was not successful.
+  /// An external dependency required to perform the operation was not provided. The operation needs
+  /// an implementation of the platform layer or an HTTP transport adapter.
+  AZ_ERROR_DEPENDENCY_NOT_PROVIDED = _az_RESULT_MAKE_ERROR(_az_FACILITY_CORE, 8),
 
-  AZ_ERROR_HTTP_PLATFORM = _az_RESULT_MAKE_ERROR(
-      _az_FACILITY_PLATFORM,
-      3), ///< Generic error in the HTTP Client layer implementation.
+  // === Platform ===
+  /// Dynamic memory allocation request was not successful.
+  AZ_ERROR_OUT_OF_MEMORY = _az_RESULT_MAKE_ERROR(_az_FACILITY_PLATFORM, 1),
 
-  // JSON error codes
+  // === JSON error codes ===
+  /// The kind of the token being read is not compatible with the expected type of the value.
   AZ_ERROR_JSON_INVALID_STATE = _az_RESULT_MAKE_ERROR(_az_FACILITY_JSON, 1),
-  AZ_ERROR_JSON_NESTING_OVERFLOW
-  = _az_RESULT_MAKE_ERROR(_az_FACILITY_JSON, 2), ///< The JSON depth is too large.
+
+  /// The JSON depth is too large.
+  AZ_ERROR_JSON_NESTING_OVERFLOW = _az_RESULT_MAKE_ERROR(_az_FACILITY_JSON, 2),
+
+  /// No more JSON text left to process.
   AZ_ERROR_JSON_READER_DONE = _az_RESULT_MAKE_ERROR(_az_FACILITY_JSON, 3),
 
-  // HTTP error codes
+  // === HTTP error codes ===
+  /// The #az_http_response instance is in an invalid state.
   AZ_ERROR_HTTP_INVALID_STATE = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 1),
+
+  /// HTTP pipeline is malformed.
   AZ_ERROR_HTTP_PIPELINE_INVALID_POLICY = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 2),
+
+  /// Unknown HTTP method verb.
   AZ_ERROR_HTTP_INVALID_METHOD_VERB = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 3),
 
-  AZ_ERROR_HTTP_AUTHENTICATION_FAILED
-  = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 4), ///< Authentication failed.
+  /// Authentication failed.
+  AZ_ERROR_HTTP_AUTHENTICATION_FAILED = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 4),
 
+  /// HTTP response overflow.
   AZ_ERROR_HTTP_RESPONSE_OVERFLOW = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 5),
+
+  /// Couldn't resolve host.
   AZ_ERROR_HTTP_RESPONSE_COULDNT_RESOLVE_HOST = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 6),
 
+  /// Error while parsing HTTP response header.
   AZ_ERROR_HTTP_CORRUPT_RESPONSE_HEADER = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 7),
 
-  // IoT error codes
-  AZ_ERROR_IOT_TOPIC_NO_MATCH = _az_RESULT_MAKE_ERROR(_az_FACILITY_IOT, 1),
-} az_result;
+  /// There are no more headers within the HTTP response payload.
+  AZ_ERROR_HTTP_END_OF_HEADERS = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 8),
 
-/// Checks whether the \a result provided indicates a failure.
-///
-/// @param result Result value to check for failure.
-///
-/// @retval true \a result indicates a failure.
-/// @retval false \a result is successful.
-AZ_NODISCARD AZ_INLINE bool az_failed(az_result result)
+  // === HTTP Adapter error codes ===
+  /// Generic error in the HTTP transport adapter implementation.
+  AZ_ERROR_HTTP_ADAPTER = _az_RESULT_MAKE_ERROR(_az_FACILITY_HTTP, 9),
+};
+
+/**
+ * @brief Checks whether the \p result provided indicates a failure.
+ *
+ * @param[in] result Result value to check for failure.
+ *
+ * @retval true The operation that returned this \p result failed.
+ * @retval false The operation that returned this \p result was successful.
+ */
+AZ_NODISCARD AZ_INLINE bool az_result_failed(az_result result)
 {
-  return ((int32_t)result & (int32_t)_az_ERROR_FLAG) != 0;
+  return ((uint32_t)result & (uint32_t)_az_ERROR_FLAG) != 0;
 }
 
-/// Checks whether the \a result provided indicates a success.
-///
-/// @param result Result value to check for success.
-///
-/// @retval true \a result indicates success.
-/// @retval false \a result is a failure.
-AZ_NODISCARD AZ_INLINE bool az_succeeded(az_result result) { return !az_failed(result); }
+/**
+ * @brief Checks whether the \p result provided indicates a success.
+ *
+ * @param[in] result Result value to check for success.
+ *
+ * @retval `true` The operation that returned this \p result was successful.
+ * @retval `false` The operation that returned this \p result failed.
+ */
+AZ_NODISCARD AZ_INLINE bool az_result_succeeded(az_result result)
+{
+  return !az_result_failed(result);
+}
 
 #include <_az_cfg_suffix.h>
 

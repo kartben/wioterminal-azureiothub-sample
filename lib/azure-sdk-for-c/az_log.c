@@ -4,11 +4,11 @@
 #include "az_span_private.h"
 #include <az_config.h>
 #include <az_http.h>
-#include <az_http_internal.h>
 #include <az_http_transport.h>
 #include <az_log.h>
-#include <az_log_internal.h>
 #include <az_span.h>
+#include <az_http_internal.h>
+#include <az_log_internal.h>
 
 #include <stddef.h>
 
@@ -19,14 +19,14 @@
 static az_log_classification const* volatile _az_log_classifications = NULL;
 static az_log_message_fn volatile _az_log_message_callback = NULL;
 
-void az_log_set_classifications(az_log_classification const classifications[])
+void _az_log_set_classifications(az_log_classification const classifications[])
 {
   _az_log_classifications = classifications;
 }
 
-void az_log_set_callback(az_log_message_fn az_log_message_callback)
+void az_log_set_message_callback(az_log_message_fn log_message_callback)
 {
-  _az_log_message_callback = az_log_message_callback;
+  _az_log_message_callback = log_message_callback;
 }
 
 // _az_LOG_WRITE_engine is a function private to this .c file; it contains the code to handle
@@ -53,11 +53,11 @@ static bool _az_log_write_engine(bool log_it, az_log_classification classificati
   {
     // If the user hasn't registered any classifications, then we log everything.
     classifications
-        = &classification; // We don't need AZ_LOG_END_OF_LIST to be there, as very first comparison
-                           // is going to succeed and return from the function.
+        = &classification; // We don't need _az_LOG_END_OF_LIST to be there, as very first
+                           // comparison is going to succeed and return from the function.
   }
 
-  for (az_log_classification const* cls = classifications; *cls != AZ_LOG_END_OF_LIST; ++cls)
+  for (az_log_classification const* cls = classifications; *cls != _az_LOG_END_OF_LIST; ++cls)
   {
     // If this message's classification is in the customer-provided list, we should log it.
     if (*cls == classification)
@@ -78,7 +78,7 @@ static bool _az_log_write_engine(bool log_it, az_log_classification classificati
 // This function returns whether or not the passed-in message should be logged.
 bool _az_log_should_write(az_log_classification classification)
 {
-  return _az_log_write_engine(false, classification, AZ_SPAN_NULL);
+  return _az_log_write_engine(false, classification, AZ_SPAN_EMPTY);
 }
 
 // This function attempts to log the passed-in message.

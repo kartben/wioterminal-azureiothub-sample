@@ -3,10 +3,11 @@
 
 #include <stdint.h>
 
-#include <az_iot_hub_client.h>
 #include <az_result.h>
 #include <az_span.h>
+#include <az_result_internal.h>
 #include <az_span_internal.h>
+#include <az_iot_hub_client.h>
 #include <az_iot_common_internal.h>
 
 #include <az_log_internal.h>
@@ -38,7 +39,10 @@ AZ_NODISCARD az_result az_iot_hub_client_methods_parse_received_topic(
     return AZ_ERROR_IOT_TOPIC_NO_MATCH;
   }
 
-  _az_LOG_WRITE(AZ_LOG_MQTT_RECEIVED_TOPIC, received_topic);
+  if (_az_LOG_SHOULD_WRITE(AZ_LOG_MQTT_RECEIVED_TOPIC))
+  {
+    _az_LOG_WRITE(AZ_LOG_MQTT_RECEIVED_TOPIC, received_topic);
+  }
 
   received_topic = az_span_slice(
       received_topic, index + az_span_size(methods_topic_prefix), az_span_size(received_topic));
@@ -86,17 +90,18 @@ AZ_NODISCARD az_result az_iot_hub_client_methods_response_get_publish_topic(
 
   (void)client;
 
-  az_span mqtt_topic_span = az_span_init((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
+  az_span mqtt_topic_span = az_span_create((uint8_t*)mqtt_topic, (int32_t)mqtt_topic_size);
   int32_t required_length = az_span_size(methods_topic_prefix)
       + az_span_size(methods_response_topic_result) + _az_iot_u32toa_size(status)
       + az_span_size(methods_response_topic_properties) + az_span_size(request_id);
 
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(mqtt_topic_span, required_length + (int32_t)sizeof(null_terminator));
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(
+      mqtt_topic_span, required_length + (int32_t)sizeof(null_terminator));
 
   az_span remainder = az_span_copy(mqtt_topic_span, methods_topic_prefix);
   remainder = az_span_copy(remainder, methods_response_topic_result);
 
-  AZ_RETURN_IF_FAILED(az_span_u32toa(remainder, (uint32_t)status, &remainder));
+  _az_RETURN_IF_FAILED(az_span_u32toa(remainder, (uint32_t)status, &remainder));
 
   remainder = az_span_copy(remainder, methods_response_topic_properties);
   remainder = az_span_copy(remainder, request_id);

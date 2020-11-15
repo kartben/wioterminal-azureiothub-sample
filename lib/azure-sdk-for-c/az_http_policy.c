@@ -4,8 +4,9 @@
 #include "az_http_private.h"
 #include <az_credentials.h>
 #include <az_http.h>
-#include <az_http_internal.h>
 #include <az_span.h>
+#include <az_http_internal.h>
+#include <az_result_internal.h>
 
 #include <_az_cfg.h>
 
@@ -14,7 +15,7 @@ static const az_span AZ_HTTP_HEADER_USER_AGENT = AZ_SPAN_LITERAL_FROM_STR("User-
 AZ_NODISCARD az_result az_http_pipeline_policy_apiversion(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response)
 {
 
@@ -25,13 +26,14 @@ AZ_NODISCARD az_result az_http_pipeline_policy_apiversion(
   {
     case _az_http_policy_apiversion_option_location_header:
       // Add the version as a header
-      AZ_RETURN_IF_FAILED(az_http_request_append_header(
+      _az_RETURN_IF_FAILED(az_http_request_append_header(
           ref_request, options->_internal.name, options->_internal.version));
       break;
     case _az_http_policy_apiversion_option_location_queryparameter:
-      // Add the version as a query parameter
-      AZ_RETURN_IF_FAILED(az_http_request_set_query_parameter(
-          ref_request, options->_internal.name, options->_internal.version));
+      // Add the version as a query parameter. This value doesn't need url-encoding. Use `true` for
+      // url-encode to avoid encoding.
+      _az_RETURN_IF_FAILED(az_http_request_set_query_parameter(
+          ref_request, options->_internal.name, options->_internal.version, true));
       break;
     default:
       return AZ_ERROR_ARG;
@@ -43,13 +45,13 @@ AZ_NODISCARD az_result az_http_pipeline_policy_apiversion(
 AZ_NODISCARD az_result az_http_pipeline_policy_telemetry(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response)
 {
 
   _az_http_policy_telemetry_options* options = (_az_http_policy_telemetry_options*)(ref_options);
 
-  AZ_RETURN_IF_FAILED(
+  _az_RETURN_IF_FAILED(
       az_http_request_append_header(ref_request, AZ_HTTP_HEADER_USER_AGENT, options->os));
 
   return _az_http_pipeline_nextpolicy(ref_policies, ref_request, ref_response);
@@ -58,7 +60,7 @@ AZ_NODISCARD az_result az_http_pipeline_policy_telemetry(
 AZ_NODISCARD az_result az_http_pipeline_policy_credential(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response)
 {
   _az_credential* const credential = (_az_credential*)ref_options;
@@ -76,7 +78,7 @@ AZ_NODISCARD az_result az_http_pipeline_policy_credential(
 AZ_NODISCARD az_result az_http_pipeline_policy_transport(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response)
 {
   (void)ref_policies; // this is the last policy in the pipeline, we just void it

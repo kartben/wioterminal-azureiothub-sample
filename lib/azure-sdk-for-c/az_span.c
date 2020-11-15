@@ -6,6 +6,7 @@
 #include <az_precondition.h>
 #include <az_span.h>
 #include <az_precondition_internal.h>
+#include <az_result_internal.h>
 #include <az_span_internal.h>
 
 #include <ctype.h>
@@ -21,9 +22,9 @@
 #define _az_MAX_SAFE_INTEGER 9007199254740991
 
 #ifndef AZ_NO_PRECONDITION_CHECKING
-// Note: If you are modifying this method, make sure to modify the inline version in the az_span.h
+// Note: If you are modifying this function, make sure to modify the inline version in the az_span.h
 // file as well.
-AZ_NODISCARD az_span az_span_init(uint8_t* ptr, int32_t size)
+AZ_NODISCARD az_span az_span_create(uint8_t* ptr, int32_t size)
 {
   // If ptr is not null, then:
   //   size >= 0
@@ -35,21 +36,21 @@ AZ_NODISCARD az_span az_span_init(uint8_t* ptr, int32_t size)
 }
 #endif // AZ_NO_PRECONDITION_CHECKING
 
-AZ_NODISCARD az_span az_span_from_str(char* str)
+AZ_NODISCARD az_span az_span_create_from_str(char* str)
 {
   _az_PRECONDITION_NOT_NULL(str);
 
   // Avoid passing in null pointer to strlen to avoid memory access violation.
   if (str == NULL)
   {
-    return AZ_SPAN_NULL;
+    return AZ_SPAN_EMPTY;
   }
 
   int32_t const length = (int32_t)strlen(str);
 
   _az_PRECONDITION(length >= 0);
 
-  return az_span_init((uint8_t*)str, length);
+  return az_span_create((uint8_t*)str, length);
 }
 
 AZ_NODISCARD az_span az_span_slice(az_span span, int32_t start_index, int32_t end_index)
@@ -63,7 +64,7 @@ AZ_NODISCARD az_span az_span_slice(az_span span, int32_t start_index, int32_t en
   _az_PRECONDITION_RANGE(0, end_index, az_span_size(span));
   _az_PRECONDITION((uint32_t)start_index <= (uint32_t)end_index);
 
-  return az_span_init(az_span_ptr(span) + start_index, end_index - start_index);
+  return az_span_create(az_span_ptr(span) + start_index, end_index - start_index);
 }
 
 AZ_NODISCARD az_span az_span_slice_to_end(az_span span, int32_t start_index)
@@ -77,7 +78,7 @@ AZ_NODISCARD AZ_INLINE uint8_t _az_tolower(uint8_t value)
   // return 'A' <= value && value <= 'Z' ? value + AZ_ASCII_LOWER_DIF : value;
   if ((uint8_t)(int8_t)(value - 'A') <= ('Z' - 'A'))
   {
-    value = (uint8_t)((value + _az_ASCII_LOWER_DIF) & 0xFF);
+    value = (uint8_t)((uint32_t)(value + _az_ASCII_LOWER_DIF) & (uint8_t)UINT8_MAX);
   }
   return value;
 }
@@ -140,12 +141,12 @@ AZ_NODISCARD az_result az_span_atou64(az_span source, uint64_t* out_number)
 
     // Check whether the next digit will cause an integer overflow.
     // Before actually doing the math below, this is checking whether value * 10 + d > UINT64_MAX.
-    if ((UINT64_MAX - d) / 10 < value)
+    if ((UINT64_MAX - d) / _az_NUMBER_OF_DECIMAL_VALUES < value)
     {
       return AZ_ERROR_UNEXPECTED_CHAR;
     }
 
-    value = value * 10 + d;
+    value = value * _az_NUMBER_OF_DECIMAL_VALUES + d;
   }
 
   *out_number = value;
@@ -193,12 +194,12 @@ AZ_NODISCARD az_result az_span_atou32(az_span source, uint32_t* out_number)
 
     // Check whether the next digit will cause an integer overflow.
     // Before actually doing the math below, this is checking whether value * 10 + d > UINT32_MAX.
-    if ((UINT32_MAX - d) / 10 < value)
+    if ((UINT32_MAX - d) / _az_NUMBER_OF_DECIMAL_VALUES < value)
     {
       return AZ_ERROR_UNEXPECTED_CHAR;
     }
 
-    value = value * 10 + d;
+    value = value * _az_NUMBER_OF_DECIMAL_VALUES + d;
   }
 
   *out_number = value;
@@ -263,12 +264,12 @@ AZ_NODISCARD az_result az_span_atoi64(az_span source, int64_t* out_number)
     // Check whether the next digit will cause an integer overflow.
     // Before actually doing the math below, this is checking whether value * 10 + d > INT64_MAX, or
     // in the case of negative numbers, checking whether value * 10 + d > INT64_MAX + 1.
-    if ((uint64_t)(INT64_MAX - d + sign_factor) / 10 < value)
+    if ((uint64_t)(INT64_MAX - d + sign_factor) / _az_NUMBER_OF_DECIMAL_VALUES < value)
     {
       return AZ_ERROR_UNEXPECTED_CHAR;
     }
 
-    value = value * 10 + d;
+    value = value * _az_NUMBER_OF_DECIMAL_VALUES + d;
   }
 
   *out_number = (int64_t)value * sign;
@@ -333,12 +334,12 @@ AZ_NODISCARD az_result az_span_atoi32(az_span source, int32_t* out_number)
     // Check whether the next digit will cause an integer overflow.
     // Before actually doing the math below, this is checking whether value * 10 + d > INT32_MAX, or
     // in the case of negative numbers, checking whether value * 10 + d > INT32_MAX + 1.
-    if ((uint32_t)(INT32_MAX - d + sign_factor) / 10 < value)
+    if ((uint32_t)(INT32_MAX - d + sign_factor) / _az_NUMBER_OF_DECIMAL_VALUES < value)
     {
       return AZ_ERROR_UNEXPECTED_CHAR;
     }
 
-    value = value * 10 + d;
+    value = value * _az_NUMBER_OF_DECIMAL_VALUES + d;
   }
 
   *out_number = (int32_t)value * sign;
@@ -355,9 +356,11 @@ static bool _is_valid_start_of_double(uint8_t first_byte)
 
 // Disable the following warning just for this particular use case.
 // C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead.
+// C4710: 'sscanf': function not inlined
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4996)
+#pragma warning(disable : 4710)
 #endif
 
 AZ_NODISCARD az_result az_span_atod(az_span source, double* out_number)
@@ -367,7 +370,7 @@ AZ_NODISCARD az_result az_span_atod(az_span source, double* out_number)
 
   int32_t size = az_span_size(source);
 
-  _az_PRECONDITION_RANGE(1, size, 99);
+  _az_PRECONDITION_RANGE(1, size, _az_MAX_SIZE_FOR_PARSING_DOUBLE);
 
   // This check is necessary to prevent sscanf from reading bytes past the end of the span, when the
   // span might contain whitespace or other invalid bytes at the start.
@@ -379,19 +382,20 @@ AZ_NODISCARD az_result az_span_atod(az_span source, double* out_number)
 
   // Stack based string to allow thread-safe mutation.
   // The length is 8 to allow space for the null-terminating character.
+  // NOLINTNEXTLINE(readability-magic-numbers,  cppcoreguidelines-avoid-magic-numbers)
   char format[8] = "%00lf%n";
 
   // Starting at 1 to skip the '%' character
-  format[1] = (char)((size / 10) + '0');
-  format[2] = (char)((size % 10) + '0');
+  format[1] = (char)((size / _az_NUMBER_OF_DECIMAL_VALUES) + '0');
+  format[2] = (char)((size % _az_NUMBER_OF_DECIMAL_VALUES) + '0');
 
   int32_t chars_consumed = 0;
+  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
   int32_t n = sscanf((char*)source_ptr, format, out_number, &chars_consumed);
 
   // Success if the entire source was consumed by sscanf and it set the out_number argument.
-  return (size == chars_consumed && n == 1 && _az_is_finite(*out_number))
-      ? AZ_OK
-      : AZ_ERROR_UNEXPECTED_CHAR;
+  return (size == chars_consumed && n == 1 && _az_isfinite(*out_number)) ? AZ_OK
+                                                                         : AZ_ERROR_UNEXPECTED_CHAR;
 }
 
 #ifdef _MSC_VER
@@ -428,43 +432,42 @@ AZ_NODISCARD int32_t az_span_find(az_span source, az_span target)
   {
     return 0;
   }
-  else if (source_size < target_size)
+
+  if (source_size < target_size)
   {
     return target_not_found;
   }
-  else
+
+  uint8_t* source_ptr = az_span_ptr(source);
+  uint8_t* target_ptr = az_span_ptr(target);
+
+  // This loop traverses `source` position by position (step 1.)
+  for (int32_t i = 0; i < (source_size - target_size + 1); i++)
   {
-    uint8_t* source_ptr = az_span_ptr(source);
-    uint8_t* target_ptr = az_span_ptr(target);
-
-    // This loop traverses `source` position by position (step 1.)
-    for (int32_t i = 0; i < (source_size - target_size + 1); i++)
+    // This is the check done in step 1. above.
+    if (source_ptr[i] == target_ptr[0])
     {
-      // This is the check done in step 1. above.
-      if (source_ptr[i] == target_ptr[0])
+      // The condition in step 2. has been satisfied.
+      int32_t j = 1;
+      // This is the loop defined in step 3.
+      // The loop must be broken if it reaches the ends of `target` (step 3.) OR `source`
+      // (step 5.).
+      for (; j < target_size && (i + j) < source_size; j++)
       {
-        // The condition in step 2. has been satisfied.
-        int32_t j;
-        // This is the loop defined in step 3.
-        // The loop must be broken if it reaches the ends of `target` (step 3.) OR `source`
-        // (step 5.).
-        for (j = 1; j < target_size && (i + j) < source_size; j++)
+        // Condition defined in step 5.
+        if (source_ptr[i + j] != target_ptr[j])
         {
-          // Condition defined in step 5.
-          if (source_ptr[i + j] != target_ptr[j])
-          {
-            break;
-          }
+          break;
         }
+      }
 
-        if (j == target_size)
-        {
-          // All bytes in `target` have been checked and matched the corresponding bytes in `source`
-          // (from the start point `i`), so this is indeed an instance of `target` in that position
-          // of `source` (step 4.).
+      if (j == target_size)
+      {
+        // All bytes in `target` have been checked and matched the corresponding bytes in `source`
+        // (from the start point `i`), so this is indeed an instance of `target` in that position
+        // of `source` (step 4.).
 
-          return i;
-        }
+        return i;
       }
     }
   }
@@ -485,8 +488,8 @@ az_span az_span_copy(az_span destination, az_span source)
     return destination;
   }
 
-  // Even though the contract of this method is that the destination must be larger than source, cap
-  // the data move if the source is too large, to avoid memory corruption.
+  // Even though the contract of this function is that the destination must be larger than source,
+  // cap the data move if the source is too large, to avoid memory corruption.
   int32_t dest_size = az_span_size(destination);
   if (src_size > dest_size)
   {
@@ -494,6 +497,7 @@ az_span az_span_copy(az_span destination, az_span source)
   }
 
   uint8_t* ptr = az_span_ptr(destination);
+  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
   memmove((void*)ptr, (void const*)az_span_ptr(source), (size_t)src_size);
 
   return az_span_slice_to_end(destination, src_size);
@@ -503,7 +507,7 @@ az_span az_span_copy_u8(az_span destination, uint8_t byte)
 {
   _az_PRECONDITION_VALID_SPAN(destination, 1, false);
 
-  // Even though the contract of the method is that the destination must be at least 1 byte large,
+  // Even though the contract of the function is that the destination must be at least 1 byte large,
   // no-op if it is empty to avoid memory corruption.
   int32_t dest_size = az_span_size(destination);
   if (dest_size < 1)
@@ -513,7 +517,7 @@ az_span az_span_copy_u8(az_span destination, uint8_t byte)
 
   uint8_t* dst_ptr = az_span_ptr(destination);
   dst_ptr[0] = byte;
-  return az_span_init(dst_ptr + 1, dest_size - 1);
+  return az_span_create(dst_ptr + 1, dest_size - 1);
 }
 
 void az_span_to_str(char* destination, int32_t destination_max_size, az_span source)
@@ -530,7 +534,7 @@ void az_span_to_str(char* destination, int32_t destination_max_size, az_span sou
 
   _az_PRECONDITION(size_to_write < destination_max_size);
 
-  // Even though the contract of this method is that the destination_max_size must be larger than
+  // Even though the contract of this function is that the destination_max_size must be larger than
   // source to be able to copy all of the source to the char buffer including an extra null
   // terminating character, cap the data move if the source is too large, to avoid memory
   // corruption.
@@ -549,80 +553,19 @@ void az_span_to_str(char* destination, int32_t destination_max_size, az_span sou
 
   _az_PRECONDITION(size_to_write >= 0);
 
+  // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
   memmove((void*)destination, (void const*)az_span_ptr(source), (size_t)size_to_write);
   destination[size_to_write] = 0;
 }
 
-/**
- * @brief Replace all contents from a starting position to an end position with the content of a
- * provided span
- *
- * @param destination src span where to replace content
- * @param start starting position where to replace
- * @param end end position where to replace
- * @param replacement content to use for replacement
- * @return AZ_NODISCARD az_span_replace
- */
-AZ_NODISCARD az_result _az_span_replace(
-    az_span destination,
-    int32_t current_size,
-    int32_t start,
-    int32_t end,
-    az_span replacement)
+AZ_INLINE uint8_t _az_decimal_to_ascii(uint8_t d)
 {
-  int32_t const replacement_size = az_span_size(replacement);
-  int32_t const replaced_size = end - start;
-  int32_t const size_after_replace = current_size - replaced_size + replacement_size;
-
-  // Start and end position must be within the destination span and be positive.
-  // Start position must be less or equal than end position.
-  if ((uint32_t)start > (uint32_t)current_size || (uint32_t)end > (uint32_t)current_size
-      || start > end)
-  {
-    return AZ_ERROR_ARG;
-  };
-
-  // The replaced size must be less or equal to current span size. Can't replace more than what
-  // current is available. The size after replacing must be less than or equal to the size of
-  // destination span.
-  if (replaced_size > current_size || size_after_replace > az_span_size(destination))
-  {
-    return AZ_ERROR_ARG;
-  };
-
-  // insert at the end case (no need to make left or right shift)
-  if (start == current_size)
-  {
-    destination = az_span_copy(az_span_slice_to_end(destination, start), replacement);
-    return AZ_OK;
-  }
-  // replace all content case (no need to make left or right shift, only copy)
-  // TODO: Verify and fix this check, if needed.
-  if (current_size == replaced_size)
-  {
-    destination = az_span_copy(destination, replacement);
-    return AZ_OK;
-  }
-
-  // get the span needed to be moved before adding a new span
-  az_span dst = az_span_slice_to_end(destination, start + replacement_size);
-  // get the span where to move content
-  az_span src = az_span_slice(destination, end, current_size);
-  {
-    // move content left or right so new span can be added
-    az_span_copy(dst, src);
-    // add the new span
-    az_span_copy(az_span_slice_to_end(destination, start), replacement);
-  }
-
-  return AZ_OK;
+  return (uint8_t)((uint32_t)('0' + d) & (uint8_t)UINT8_MAX);
 }
-
-AZ_INLINE uint8_t _az_decimal_to_ascii(uint8_t d) { return (uint8_t)(('0' + d) & 0xFF); }
 
 static AZ_NODISCARD az_result _az_span_builder_append_uint64(az_span* ref_span, uint64_t n)
 {
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(*ref_span, 1);
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(*ref_span, 1);
 
   if (n == 0)
   {
@@ -630,23 +573,23 @@ static AZ_NODISCARD az_result _az_span_builder_append_uint64(az_span* ref_span, 
     return AZ_OK;
   }
 
-  uint64_t div = 10000000000000000000ull;
+  uint64_t div = _az_SMALLEST_20_DIGIT_NUMBER;
   uint64_t nn = n;
-  int32_t digit_count = 20;
+  int32_t digit_count = _az_MAX_SIZE_FOR_UINT64;
   while (nn / div == 0)
   {
-    div /= 10;
+    div /= _az_NUMBER_OF_DECIMAL_VALUES;
     digit_count--;
   }
 
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(*ref_span, digit_count);
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(*ref_span, digit_count);
 
   while (div > 1)
   {
     uint8_t value_to_append = _az_decimal_to_ascii((uint8_t)(nn / div));
     *ref_span = az_span_copy_u8(*ref_span, value_to_append);
     nn %= div;
-    div /= 10;
+    div /= _az_NUMBER_OF_DECIMAL_VALUES;
   }
   uint8_t value_to_append = _az_decimal_to_ascii((uint8_t)nn);
   *ref_span = az_span_copy_u8(*ref_span, value_to_append);
@@ -669,7 +612,7 @@ AZ_NODISCARD az_result az_span_i64toa(az_span destination, int64_t source, az_sp
 
   if (source < 0)
   {
-    AZ_RETURN_IF_NOT_ENOUGH_SIZE(destination, 1);
+    _az_RETURN_IF_NOT_ENOUGH_SIZE(destination, 1);
     *out_span = az_span_copy_u8(destination, '-');
     return _az_span_builder_append_uint64(out_span, (uint64_t)-source);
   }
@@ -683,7 +626,7 @@ AZ_NODISCARD az_result az_span_i64toa(az_span destination, int64_t source, az_sp
 static AZ_NODISCARD az_result
 _az_span_builder_append_u32toa(az_span destination, uint32_t n, az_span* out_span)
 {
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(destination, 1);
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(destination, 1);
 
   if (n == 0)
   {
@@ -691,16 +634,16 @@ _az_span_builder_append_u32toa(az_span destination, uint32_t n, az_span* out_spa
     return AZ_OK;
   }
 
-  uint32_t div = 1000000000;
+  uint32_t div = _az_SMALLEST_10_DIGIT_NUMBER;
   uint32_t nn = n;
-  int32_t digit_count = 10;
+  int32_t digit_count = _az_MAX_SIZE_FOR_UINT32;
   while (nn / div == 0)
   {
-    div /= 10;
+    div /= _az_NUMBER_OF_DECIMAL_VALUES;
     digit_count--;
   }
 
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(destination, digit_count);
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(destination, digit_count);
 
   *out_span = destination;
 
@@ -710,7 +653,7 @@ _az_span_builder_append_u32toa(az_span destination, uint32_t n, az_span* out_spa
     *out_span = az_span_copy_u8(*out_span, value_to_append);
 
     nn %= div;
-    div /= 10;
+    div /= _az_NUMBER_OF_DECIMAL_VALUES;
   }
 
   uint8_t value_to_append = _az_decimal_to_ascii((uint8_t)nn);
@@ -734,7 +677,7 @@ AZ_NODISCARD az_result az_span_i32toa(az_span destination, int32_t source, az_sp
 
   if (source < 0)
   {
-    AZ_RETURN_IF_NOT_ENOUGH_SIZE(*out_span, 1);
+    _az_RETURN_IF_NOT_ENOUGH_SIZE(*out_span, 1);
     *out_span = az_span_copy_u8(*out_span, '-');
     source = -source;
   }
@@ -747,21 +690,21 @@ az_span_dtoa(az_span destination, double source, int32_t fractional_digits, az_s
 {
   _az_PRECONDITION_VALID_SPAN(destination, 0, false);
   // Inputs that are either positive or negative infinity, or not a number, are not supported.
-  _az_PRECONDITION(_az_is_finite(source));
+  _az_PRECONDITION(_az_isfinite(source));
   _az_PRECONDITION_RANGE(0, fractional_digits, _az_MAX_SUPPORTED_FRACTIONAL_DIGITS);
   _az_PRECONDITION_NOT_NULL(out_span);
 
   *out_span = destination;
 
   // The input is either positive or negative infinity, or not a number.
-  if (!_az_is_finite(source))
+  if (!_az_isfinite(source))
   {
     return AZ_ERROR_NOT_SUPPORTED;
   }
 
   if (source < 0)
   {
-    AZ_RETURN_IF_NOT_ENOUGH_SIZE(*out_span, 1);
+    _az_RETURN_IF_NOT_ENOUGH_SIZE(*out_span, 1);
     *out_span = az_span_copy_u8(*out_span, '-');
     source = -source;
   }
@@ -776,7 +719,7 @@ az_span_dtoa(az_span destination, double source, int32_t fractional_digits, az_s
 
   // The double to uint64_t cast should be safe without loss of precision.
   // Append the integer part.
-  AZ_RETURN_IF_FAILED(_az_span_builder_append_uint64(out_span, (uint64_t)integer_part));
+  _az_RETURN_IF_FAILED(_az_span_builder_append_uint64(out_span, (uint64_t)integer_part));
 
   // Only print decimal digits if the user asked for at least one to be printed.
   // Or if the decimal part is non-zero.
@@ -795,7 +738,7 @@ az_span_dtoa(az_span destination, double source, int32_t fractional_digits, az_s
   double shifted_fractional = after_decimal_part;
   for (int32_t d = 0; d < fractional_digits; d++)
   {
-    shifted_fractional *= 10;
+    shifted_fractional *= _az_NUMBER_OF_DECIMAL_VALUES;
 
     // Any decimal component that is less than 0.1, when multiplied by 10, will be less than 1,
     // which indicate a leading zero is present after the decimal point. For example, the decimal
@@ -827,12 +770,12 @@ az_span_dtoa(az_span destination, double source, int32_t fractional_digits, az_s
 
   // Remove trailing zeros of the fraction part that don't need to be printed since they aren't
   // significant.
-  while (fractional_part % 10 == 0)
+  while (fractional_part % _az_NUMBER_OF_DECIMAL_VALUES == 0)
   {
-    fractional_part /= 10;
+    fractional_part /= _az_NUMBER_OF_DECIMAL_VALUES;
   }
 
-  AZ_RETURN_IF_NOT_ENOUGH_SIZE(*out_span, 1 + leading_zeros);
+  _az_RETURN_IF_NOT_ENOUGH_SIZE(*out_span, 1 + leading_zeros);
   *out_span = az_span_copy_u8(*out_span, '.');
 
   for (int32_t z = 0; z < leading_zeros; z++)
@@ -847,17 +790,15 @@ az_span_dtoa(az_span destination, double source, int32_t fractional_digits, az_s
 // TODO: pass az_span by value
 AZ_NODISCARD az_result _az_is_expected_span(az_span* ref_span, az_span expected)
 {
-  az_span actual_span = { 0 };
-
   int32_t expected_size = az_span_size(expected);
 
   // EOF because ref_span is smaller than the expected span
   if (expected_size > az_span_size(*ref_span))
   {
-    return AZ_ERROR_EOF;
+    return AZ_ERROR_UNEXPECTED_END;
   }
 
-  actual_span = az_span_slice(*ref_span, 0, expected_size);
+  az_span actual_span = az_span_slice(*ref_span, 0, expected_size);
 
   if (!az_span_is_content_equal(actual_span, expected))
   {
@@ -869,42 +810,13 @@ AZ_NODISCARD az_result _az_is_expected_span(az_span* ref_span, az_span expected)
   return AZ_OK;
 }
 
-// PRIVATE. read until condition is true on character.
-// Then return number of positions read with output parameter
-AZ_NODISCARD az_result
-_az_span_scan_until(az_span span, _az_predicate predicate, int32_t* out_index)
-{
-  for (int32_t index = 0; index < az_span_size(span); ++index)
-  {
-    az_span s = az_span_slice_to_end(span, index);
-    az_result predicate_result = predicate(s);
-    switch (predicate_result)
-    {
-      case AZ_OK:
-      {
-        *out_index = index;
-        return AZ_OK;
-      }
-      case AZ_CONTINUE:
-      {
-        break;
-      }
-      default:
-      {
-        return predicate_result;
-      }
-    }
-  }
-  return AZ_ERROR_ITEM_NOT_FOUND;
-}
-
-AZ_NODISCARD az_span _az_span_trim_white_space(az_span source)
+AZ_NODISCARD az_span _az_span_trim_whitespace(az_span source)
 {
   // Trim from end after trim from start
-  return _az_span_trim_white_space_from_end(_az_span_trim_white_space_from_start(source));
+  return _az_span_trim_whitespace_from_end(_az_span_trim_whitespace_from_start(source));
 }
 
-AZ_NODISCARD AZ_INLINE bool _az_is_white_space(uint8_t c)
+AZ_NODISCARD AZ_INLINE bool _az_is_whitespace(uint8_t c)
 {
   switch (c)
   {
@@ -913,8 +825,9 @@ AZ_NODISCARD AZ_INLINE bool _az_is_white_space(uint8_t c)
     case '\n':
     case '\r':
       return true;
+    default:
+      return false;
   }
-  return false;
 }
 
 typedef enum
@@ -940,7 +853,7 @@ AZ_NODISCARD static az_span _az_span_trim_side(az_span source, az_span_trim_side
   int32_t index = 0;
   for (; index < source_size; index++)
   {
-    if (!_az_is_white_space(*source_ptr))
+    if (!_az_is_whitespace(*source_ptr))
     {
       break;
     }
@@ -959,14 +872,25 @@ AZ_NODISCARD static az_span _az_span_trim_side(az_span source, az_span_trim_side
   return az_span_slice_to_end(source, index); // worst case index would be source_size
 }
 
-AZ_NODISCARD az_span _az_span_trim_white_space_from_start(az_span source)
+AZ_NODISCARD az_span _az_span_trim_whitespace_from_start(az_span source)
 {
   return _az_span_trim_side(source, LEFT);
 }
 
-AZ_NODISCARD az_span _az_span_trim_white_space_from_end(az_span source)
+AZ_NODISCARD az_span _az_span_trim_whitespace_from_end(az_span source)
 {
   return _az_span_trim_side(source, RIGHT);
+}
+
+// [0-9]
+AZ_NODISCARD AZ_INLINE bool _az_span_is_byte_digit(uint8_t c) { return '0' <= c && c <= '9'; }
+
+// [A-Za-z]
+AZ_NODISCARD AZ_INLINE bool _az_span_is_byte_letter(uint8_t c)
+{
+  // This is equivalent to ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z')
+  // This works because upper case and lower case letters are 0x20 away from each other.
+  return ((uint32_t)(c - 'A') & ~(uint32_t)_az_ASCII_SPACE_CHARACTER) <= 'Z' - 'A';
 }
 
 AZ_NODISCARD AZ_INLINE bool _az_span_url_should_encode(uint8_t c)
@@ -979,8 +903,33 @@ AZ_NODISCARD AZ_INLINE bool _az_span_url_should_encode(uint8_t c)
     case '~':
       return false;
     default:
-      return !(('0' <= c && c <= '9') || ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z'));
+      return !(_az_span_is_byte_digit(c) || _az_span_is_byte_letter(c));
   }
+}
+
+AZ_NODISCARD int32_t _az_span_url_encode_calc_length(az_span source)
+{
+  _az_PRECONDITION_VALID_SPAN(source, 0, true);
+  // Trying to calculate the number of bytes to encode more than INT32_MAX / 3 might overflow an
+  // int32 and return an erroneous number back.
+  _az_PRECONDITION_RANGE(0, az_span_size(source), INT32_MAX / 3);
+
+  int32_t const source_size = az_span_size(source);
+  uint8_t const* const src_ptr = az_span_ptr(source);
+
+  int32_t encoded_length = source_size;
+  for (int32_t i = 0; i < source_size; i++)
+  {
+    uint8_t c = src_ptr[i];
+    if (_az_span_url_should_encode(c))
+    {
+      // Adding '%' plus 2 digits (minus 1 as original symbol is counted as 1)
+      encoded_length += 2;
+    }
+  }
+
+  // If source_size is 0, this will return 0.
+  return encoded_length;
 }
 
 AZ_NODISCARD az_result _az_span_url_encode(az_span destination, az_span source, int32_t* out_length)
@@ -993,109 +942,65 @@ AZ_NODISCARD az_result _az_span_url_encode(az_span destination, az_span source, 
 
   _az_PRECONDITION_NO_OVERLAP_SPANS(destination, source);
 
-  if (source_size == 0)
-  {
-    *out_length = 0;
-    return AZ_OK;
-  }
-
-  int32_t const destination_size = az_span_size(destination);
-  if (destination_size < source_size)
-  {
-    *out_length = 0;
-    return AZ_ERROR_INSUFFICIENT_SPAN_SIZE;
-  }
-
-  // "Extra space" is measured in units of 2 additional characters
-  // per single source character ('/' => "%2F").
-  int32_t const extra_space_have = (destination_size - source_size) / 2;
-
   uint8_t* const dest_begin = az_span_ptr(destination);
+  uint8_t* const dest_end = dest_begin + az_span_size(destination);
 
   uint8_t* const src_ptr = az_span_ptr(source);
   uint8_t* dest_ptr = dest_begin;
 
-  if (extra_space_have >= source_size)
+  for (int32_t i = 0; i < source_size; i++)
   {
-    // We know that there's enough space even if every character gets encoded.
-    int32_t src_idx = 0;
-    do
+    uint8_t c = src_ptr[i];
+    if (!_az_span_url_should_encode(c))
     {
-      uint8_t c = src_ptr[src_idx];
-      if (!_az_span_url_should_encode(c))
+      if (dest_ptr >= dest_end)
       {
-        *dest_ptr = c;
-        ++dest_ptr;
-      }
-      else
-      {
-        dest_ptr[0] = '%';
-        dest_ptr[1] = _az_number_to_upper_hex(c >> 4);
-        dest_ptr[2] = _az_number_to_upper_hex(c & 0x0F);
-        dest_ptr += 3;
+        *out_length = 0;
+        return AZ_ERROR_NOT_ENOUGH_SPACE;
       }
 
-      ++src_idx;
-    } while (src_idx < source_size);
-  }
-  else
-  {
-    // We may or may not have enough space, given whether the input needs much encoding or not.
-    int32_t extra_space_used = 0;
-    int32_t src_idx = 0;
-    do
+      *dest_ptr = c;
+      ++dest_ptr;
+    }
+    else
     {
-      uint8_t c = src_ptr[src_idx];
-      if (!_az_span_url_should_encode(c))
+      if (dest_ptr >= dest_end - 2)
       {
-        *dest_ptr = c;
-        ++dest_ptr;
-      }
-      else
-      {
-        ++extra_space_used;
-        if (extra_space_used > extra_space_have)
-        {
-          *out_length = 0;
-          return AZ_ERROR_INSUFFICIENT_SPAN_SIZE;
-        }
-
-        dest_ptr[0] = '%';
-        dest_ptr[1] = _az_number_to_upper_hex(c >> 4);
-        dest_ptr[2] = _az_number_to_upper_hex(c & 0x0F);
-        dest_ptr += 3;
+        *out_length = 0;
+        return AZ_ERROR_NOT_ENOUGH_SPACE;
       }
 
-      ++src_idx;
-    } while (src_idx < source_size);
+      dest_ptr[0] = '%';
+      dest_ptr[1] = _az_number_to_upper_hex(c >> 4U);
+      dest_ptr[2] = _az_number_to_upper_hex(c & (uint32_t)_az_LARGEST_HEX_VALUE);
+      dest_ptr += 3;
+    }
   }
 
   *out_length = (int32_t)(dest_ptr - dest_begin);
   return AZ_OK;
 }
 
-AZ_NODISCARD az_span _az_span_token(az_span source, az_span delimiter, az_span* out_remainder)
+az_span _az_span_token(
+    az_span source,
+    az_span delimiter,
+    az_span* out_remainder,
+    int32_t* out_index)
 {
+  _az_PRECONDITION_VALID_SPAN(source, 1, false);
   _az_PRECONDITION_VALID_SPAN(delimiter, 1, false);
   _az_PRECONDITION_NOT_NULL(out_remainder);
 
-  if (az_span_size(source) == 0)
+  *out_index = az_span_find(source, delimiter);
+
+  if (*out_index != -1)
   {
-    return AZ_SPAN_NULL;
+    *out_remainder
+        = az_span_slice(source, *out_index + az_span_size(delimiter), az_span_size(source));
+
+    return az_span_slice(source, 0, *out_index);
   }
 
-  int32_t index = az_span_find(source, delimiter);
-
-  if (index != -1)
-  {
-    *out_remainder = az_span_slice(source, index + az_span_size(delimiter), az_span_size(source));
-
-    return az_span_slice(source, 0, index);
-  }
-  else
-  {
-    *out_remainder = AZ_SPAN_NULL;
-
-    return source;
-  }
+  *out_remainder = AZ_SPAN_EMPTY;
+  return source;
 }

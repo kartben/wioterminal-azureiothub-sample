@@ -50,6 +50,16 @@ PubSubClient mqtt_client(wifi_client);
 WiFiUDP wifi_udp;
 NTP ntp(wifi_udp);
 
+#define AZ_RETURN_IF_FAILED(exp) \
+  do \
+  { \
+    az_result const _result = (exp); \
+    if (az_result_failed(_result)) \
+    { \
+      return _result; \
+    } \
+  } while (0)
+
 ////////////////////////////////////////////////////////////////////////////////
 // 
 
@@ -205,28 +215,28 @@ static int ConnectToHub(az_iot_hub_client* iot_hub_client, const std::string& ho
     static std::string deviceIdCache;
     deviceIdCache = deviceId;
 
-    const az_span hostSpan{ az_span_init((uint8_t*)&host[0], host.size()) };
-    const az_span deviceIdSpan{ az_span_init((uint8_t*)&deviceIdCache[0], deviceIdCache.size()) };
+    const az_span hostSpan{ az_span_create((uint8_t*)&host[0], host.size()) };
+    const az_span deviceIdSpan{ az_span_create((uint8_t*)&deviceIdCache[0], deviceIdCache.size()) };
     az_iot_hub_client_options options = az_iot_hub_client_options_default();
     options.model_id = AZ_SPAN_LITERAL_FROM_STR(IOT_CONFIG_MODEL_ID);
-    if (az_failed(az_iot_hub_client_init(iot_hub_client, hostSpan, deviceIdSpan, &options))) return -1;
+    if (az_result_failed(az_iot_hub_client_init(iot_hub_client, hostSpan, deviceIdSpan, &options))) return -1;
 
     char mqttClientId[128];
     size_t client_id_length;
-    if (az_failed(az_iot_hub_client_get_client_id(iot_hub_client, mqttClientId, sizeof(mqttClientId), &client_id_length))) return -4;
+    if (az_result_failed(az_iot_hub_client_get_client_id(iot_hub_client, mqttClientId, sizeof(mqttClientId), &client_id_length))) return -4;
 
     char mqttUsername[256];
-    if (az_failed(az_iot_hub_client_get_user_name(iot_hub_client, mqttUsername, sizeof(mqttUsername), NULL))) return -5;
+    if (az_result_failed(az_iot_hub_client_get_user_name(iot_hub_client, mqttUsername, sizeof(mqttUsername), NULL))) return -5;
 
     char mqttPassword[300];
     uint8_t signatureBuf[256];
-    az_span signatureSpan = az_span_init(signatureBuf, sizeof(signatureBuf));
+    az_span signatureSpan = az_span_create(signatureBuf, sizeof(signatureBuf));
     az_span signatureValidSpan;
-    if (az_failed(az_iot_hub_client_sas_get_signature(iot_hub_client, expirationEpochTime, signatureSpan, &signatureValidSpan))) return -2;
+    if (az_result_failed(az_iot_hub_client_sas_get_signature(iot_hub_client, expirationEpochTime, signatureSpan, &signatureValidSpan))) return -2;
     const std::vector<uint8_t> signature(az_span_ptr(signatureValidSpan), az_span_ptr(signatureValidSpan) + az_span_size(signatureValidSpan));
     const std::string encryptedSignature = GenerateEncryptedSignature(symmetricKey, signature);
-    az_span encryptedSignatureSpan = az_span_init((uint8_t*)&encryptedSignature[0], encryptedSignature.size());
-    if (az_failed(az_iot_hub_client_sas_get_password(iot_hub_client, encryptedSignatureSpan, expirationEpochTime, AZ_SPAN_NULL, mqttPassword, sizeof(mqttPassword), NULL))) return -3;
+    az_span encryptedSignatureSpan = az_span_create((uint8_t*)&encryptedSignature[0], encryptedSignature.size());
+    if (az_result_failed(az_iot_hub_client_sas_get_password(iot_hub_client, expirationEpochTime, encryptedSignatureSpan, AZ_SPAN_EMPTY, mqttPassword, sizeof(mqttPassword), NULL))) return -3;
 
     Log("Hub:" DLM);
     Log(" Host = %s" DLM, host.c_str());
@@ -269,7 +279,7 @@ static az_result SendTelemetry()
     AccelSensor.getAcceleration(&accelX, &accelY, &accelZ);
 
     char telemetry_topic[128];
-    if (az_failed(az_iot_hub_client_telemetry_get_publish_topic(&HubClient, NULL, telemetry_topic, sizeof(telemetry_topic), NULL)))
+    if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(&HubClient, NULL, telemetry_topic, sizeof(telemetry_topic), NULL)))
     {
         Log("Failed az_iot_hub_client_telemetry_get_publish_topic" DLM);
         return AZ_ERROR_NOT_SUPPORTED;
@@ -361,7 +371,7 @@ static int SendCommandResponse(az_iot_hub_client_method_request* request, uint16
     az_result rc;
     // Get the response topic to publish the command response
     char commands_response_topic[128];
-    if (az_failed(rc = az_iot_hub_client_methods_response_get_publish_topic(&HubClient, request->request_id, status, commands_response_topic, sizeof(commands_response_topic), NULL)))
+    if (az_result_failed(rc = az_iot_hub_client_methods_response_get_publish_topic(&HubClient, request->request_id, status, commands_response_topic, sizeof(commands_response_topic), NULL)))
     {
         Log("Unable to get method response publish topic" DLM);
         return rc;
@@ -389,14 +399,14 @@ static int SendCommandResponse(az_iot_hub_client_method_request* request, uint16
 
 static void MqttSubscribeCallbackHub(char* topic, byte* payload, unsigned int length)
 {
-    az_span topic_span = az_span_init((uint8_t *)topic, strlen(topic));
+    az_span topic_span = az_span_create((uint8_t *)topic, strlen(topic));
     az_iot_hub_client_method_request command_request;
 
-    if (az_succeeded(az_iot_hub_client_methods_parse_received_topic(&HubClient, topic_span, &command_request)))
+    if (az_result_succeeded(az_iot_hub_client_methods_parse_received_topic(&HubClient, topic_span, &command_request)))
     {
         DisplayPrintf("Command arrived!");
         // Determine if the command is supported and take appropriate actions
-        HandleCommandMessage(az_span_init(payload, length), &command_request);
+        HandleCommandMessage(az_span_create(payload, length), &command_request);
     }
 
     Log(DLM);

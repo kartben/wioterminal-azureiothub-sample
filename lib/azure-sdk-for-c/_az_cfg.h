@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 /**
- * @file _az_cfg.h
+ * @file
  *
- * @brief Disable warnings.
+ * @brief Warnings configuration and common macros for Azure SDK code.
+ * Do not include this file directly.
  *
  * @note You MUST NOT use any symbols (macros, functions, structures, enums, etc.)
  * prefixed with an underscore ('_') directly in your application code. These symbols
@@ -24,8 +25,10 @@
 // automatic variable '...'
 #pragma warning(disable : 4221)
 
-// warning C6011: Dereferencing NULL pointer. Using _az_PRECONDITION_NOT_NULL
-#pragma warning(disable : 6011)
+// warning C28278 : Function appears with no prototype in scope. Only limited analysis can be
+// performed. Include the appropriate header or add a prototype. This warning also occurs if
+// parameter or return types are omitted in a function definition.
+#pragma warning(disable : 28278)
 
 // Treat warnings as errors:
 // -------------------------
@@ -51,6 +54,9 @@
 #ifndef _az_CFG_H
 #define _az_CFG_H
 
+/**
+ * @brief Inline function.
+ */
 #ifdef _MSC_VER
 #define AZ_INLINE static __forceinline
 #elif defined(__GNUC__) || defined(__clang__) // !_MSC_VER
@@ -63,11 +69,14 @@
 #define _az_FALLTHROUGH __attribute__((fallthrough))
 #else // !__GNUC__ >= 7
 #define _az_FALLTHROUGH \
-  do \
-  { \
+  do                    \
+  {                     \
   } while (0)
 #endif // __GNUC__ >= 7
 
+/**
+ * @brief Enforce that the return value is handled (only applicable on supported compilers).
+ */
 #ifdef _MSC_VER
 #define AZ_NODISCARD _Check_return_
 #elif defined(__GNUC__) || defined(__clang__) // !_MSC_VER
@@ -77,6 +86,6 @@
 #endif // _MSC_VER
 
 // Get the number of elements in an array
-#define _az_COUNTOF(array) (sizeof(array) / sizeof(array[0]))
+#define _az_COUNTOF(array) (sizeof(array) / sizeof((array)[0]))
 
 #endif // _az_CFG_H

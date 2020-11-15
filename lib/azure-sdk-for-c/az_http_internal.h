@@ -11,19 +11,21 @@
 
 #include <_az_cfg_prefix.h>
 
+enum
+{
+  /// The maximum number of HTTP pipeline policies allowed.
+  _az_MAXIMUM_NUMBER_OF_POLICIES = 10,
+};
+
 /**
  * @brief Internal definition of an HTTP pipeline.
- *
  * Defines the number of policies inside a pipeline.
- *
- * Users @b should @b not access _internal field.
- *
  */
 typedef struct
 {
   struct
   {
-    _az_http_policy policies[10];
+    _az_http_policy policies[_az_MAXIMUM_NUMBER_OF_POLICIES];
   } _internal;
 } _az_http_pipeline;
 
@@ -34,19 +36,21 @@ typedef enum
 } _az_http_policy_apiversion_option_location;
 
 /**
- * @brief Defines the options structure used by the api version policy
- *
- * Users @b should @b not access _internal field.
- *
+ * @brief Defines the options structure used by the API Version policy.
  */
 typedef struct
 {
   // Services pass API versions in the header or in query parameters
   struct
   {
-    _az_http_policy_apiversion_option_location option_location;
     az_span name;
     az_span version;
+
+    // Avoid using enum as the first field within structs, to allow for { 0 } initialization.
+    // This is a workaround for IAR compiler warning [Pe188]: enumerated type mixed with another
+    // type.
+
+    _az_http_policy_apiversion_option_location option_location;
   } _internal;
 } _az_http_policy_apiversion_options;
 
@@ -74,8 +78,8 @@ _az_http_policy_apiversion_options_default()
 {
   return (_az_http_policy_apiversion_options){
     ._internal = { .option_location = _az_http_policy_apiversion_option_location_header,
-                   .name = AZ_SPAN_NULL,
-                   .version = AZ_SPAN_NULL }
+                   .name = AZ_SPAN_EMPTY,
+                   .version = AZ_SPAN_EMPTY }
   };
 }
 
@@ -104,50 +108,50 @@ AZ_NODISCARD az_http_policy_retry_options _az_http_policy_retry_options_default(
 // Start the pipeline
 AZ_NODISCARD az_result az_http_pipeline_process(
     _az_http_pipeline* ref_pipeline,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 
 AZ_NODISCARD az_result az_http_pipeline_policy_apiversion(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 
 AZ_NODISCARD az_result az_http_pipeline_policy_telemetry(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 
 AZ_NODISCARD az_result az_http_pipeline_policy_retry(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 
 AZ_NODISCARD az_result az_http_pipeline_policy_credential(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 
 #ifndef AZ_NO_LOGGING
 AZ_NODISCARD az_result az_http_pipeline_policy_logging(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 #endif // AZ_NO_LOGGING
 
 AZ_NODISCARD az_result az_http_pipeline_policy_transport(
     _az_http_policy* ref_policies,
     void* ref_options,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response);
 
 AZ_NODISCARD AZ_INLINE az_result _az_http_pipeline_nextpolicy(
     _az_http_policy* ref_policies,
-    _az_http_request* ref_request,
+    az_http_request* ref_request,
     az_http_response* ref_response)
 {
   // Transport Policy is the last policy in the pipeline
@@ -164,23 +168,28 @@ AZ_NODISCARD AZ_INLINE az_result _az_http_pipeline_nextpolicy(
 /**
  * @brief Format buffer as a http request containing URL and header spans.
  *
- * @param out_request HTTP request builder to initialize.
- * @param method HTTP verb: `"GET"`, `"POST"`, etc.
- * @param url Maximum URL length (see @ref az_http_request_set_query_parameter).
- * @param headers_buffer HTTP verb: `"GET"`, `"POST"`, etc.
- * @param body URL.
+ * @remark The initial \p url provided by the caller is expected to already be url-encoded.
+ *
+ * @param[out] out_request HTTP request to initialize.
+ * @param[in] context A pointer to an #az_context node.
+ * @param[in] method HTTP verb: `"GET"`, `"POST"`, etc.
+ * @param[in] url The #az_span to be used for storing the url. An initial value is expected to be in
+ * the buffer containing url schema and the server address. It can contain query parameters (like
+ * https://service.azure.com?query=1). This value is expected to be url-encoded.
+ * @param[in] url_length The size of the initial url value within url #az_span.
+ * @param[in] headers_buffer The #az_span to be used for storing headers for the request. The total
+ * number of headers are calculated automatically based on the size of the buffer.
+ * @param[in] body The #az_span buffer that contains a payload for the request. Use #AZ_SPAN_EMPTY
+ * for requests that don't have a body.
  *
  * @return
  *   - *`AZ_OK`* success.
- *   - *`AZ_ERROR_INSUFFICIENT_SPAN_SIZE`* `buffer` does not have enough space to fit the
- * `max_url_size`.
  *   - *`AZ_ERROR_ARG`*
- *     - `ref_request` is _NULL_.
- *     - `buffer`, `method_verb`, or `initial_url` are invalid spans (see @ref _az_span_is_valid).
- *     - `max_url_size` is less than `initial_url.size`.
+ *     - `out_request` is _NULL_.
+ *     - `url`, `method`, or `headers_buffer` are invalid spans (see @ref _az_span_is_valid).
  */
 AZ_NODISCARD az_result az_http_request_init(
-    _az_http_request* out_request,
+    az_http_request* out_request,
     az_context* context,
     az_http_method method,
     az_span url,
@@ -189,27 +198,24 @@ AZ_NODISCARD az_result az_http_request_init(
     az_span body);
 
 /**
- * @brief Adds path to url request.
- * For instance, if url in request is `http://example.net?qp=1` and this function is called with
- * path equals to `test`, then request url will be updated to `http://example.net/test?qp=1`.
+ * @brief Set a query parameter at the end of url.
  *
+ * @remark Query parameters are stored url-encoded. This function will not check if
+ * the a query parameter already exists in the URL. Calling this function twice with same \p name
+ * would duplicate the query parameter.
  *
- * @param ref_request http request builder reference
- * @param path span to a path to be appended into url
- * @return AZ_NODISCARD az_http_request_append_path
- */
-AZ_NODISCARD az_result az_http_request_append_path(_az_http_request* ref_request, az_span path);
-
-/**
- * @brief Set query parameter.
+ * @param[out] ref_request HTTP request that holds the URL to set the query parameter to.
+ * @param[in] name URL parameter name.
+ * @param[in] value URL parameter value.
+ * @param[in] \p is_value_url_encoded boolean value that defines if the query parameter (name and
+ * value) is url-encoded or not.
  *
- * @param ref_request HTTP request builder that holds the URL to set the query parameter to.
- * @param name URL parameter name.
- * @param value URL parameter value.
+ * @remarks if \p is_value_url_encoded is set to false, before setting query parameter, it would be
+ * url-encoded.
  *
  * @return
  *   - *`AZ_OK`* success.
- *   - *`AZ_ERROR_INSUFFICIENT_SPAN_SIZE`* the `URL` would grow past the `max_url_size`, should
+ *   - *`AZ_ERROR_NOT_ENOUGH_SPACE`* the `URL` would grow past the `max_url_size`, should
  * the parameter get set.
  *   - *`AZ_ERROR_ARG`*
  *     - `p_request` is _NULL_.
@@ -217,28 +223,26 @@ AZ_NODISCARD az_result az_http_request_append_path(_az_http_request* ref_request
  *     - `name` or `value` are empty.
  *     - `name`'s or `value`'s buffer overlap resulting `url`'s buffer.
  */
-AZ_NODISCARD az_result
-az_http_request_set_query_parameter(_az_http_request* ref_request, az_span name, az_span value);
+AZ_NODISCARD az_result az_http_request_set_query_parameter(
+    az_http_request* ref_request,
+    az_span name,
+    az_span value,
+    bool is_value_url_encoded);
 
 /**
  * @brief Add a new HTTP header for the request.
  *
  * @param ref_request HTTP request builder that holds the URL to set the query parameter to.
- * @param key Header name (e.g. `"Content-Type"`).
+ * @param name Header name (e.g. `"Content-Type"`).
  * @param value Header value (e.g. `"application/x-www-form-urlencoded"`).
  *
- * @return
- *   - *`AZ_OK`* success.
- *   - *`AZ_ERROR_INSUFFICIENT_SPAN_SIZE`* there isn't enough space in the `p_request->buffer`
- * to add a header.
- *   - *`AZ_ERROR_ARG`*
- *     - `p_request` is _NULL_.
- *     - `key` or `value` are invalid spans (see @ref _az_span_is_valid).
- *     - `key` or `value` are empty.
- *     - `name`'s or `value`'s buffer overlap resulting `url`'s buffer.
+ * @return An #az_result value indicating the result of the operation.
+ * @retval #AZ_OK Success.
+ * @retval #AZ_ERROR_NOT_ENOUGH_SPACE There isn't enough space in the \p ref_request to add a
+ * header.
  */
 AZ_NODISCARD az_result
-az_http_request_append_header(_az_http_request* ref_request, az_span key, az_span value);
+az_http_request_append_header(az_http_request* ref_request, az_span name, az_span value);
 
 #include <_az_cfg_suffix.h>
 
