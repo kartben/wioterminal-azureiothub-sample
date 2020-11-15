@@ -2,23 +2,19 @@
 // SPDX-License-Identifier: MIT
 
 #include <az_platform.h>
+#include <az_precondition_internal.h>
 
 #include <_az_cfg.h>
 
-AZ_NODISCARD int64_t az_platform_clock_msec() { return 0; }
-
-void az_platform_sleep_msec(int32_t milliseconds) { (void)milliseconds; }
-
-AZ_NODISCARD bool az_platform_atomic_compare_exchange(
-    uintptr_t volatile* obj,
-    uintptr_t expected,
-    uintptr_t desired)
+AZ_NODISCARD az_result az_platform_clock_msec(int64_t* out_clock_msec)
 {
-  if (*obj == expected)
-  {
-    *obj = desired;
-    return true;
-  }
+  _az_PRECONDITION_NOT_NULL(out_clock_msec);
+  *out_clock_msec = 0;
+  return AZ_ERROR_DEPENDENCY_NOT_PROVIDED;
+}
 
-  return false;
+AZ_NODISCARD az_result az_platform_sleep_msec(int32_t milliseconds)
+{
+  (void)milliseconds;
+  return AZ_ERROR_DEPENDENCY_NOT_PROVIDED;
 }
