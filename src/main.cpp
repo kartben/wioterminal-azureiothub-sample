@@ -7,7 +7,7 @@
 
 #include <LIS3DHTR.h>
 
-#include <WiFiClientSecure.h>
+#include <rpcWiFiClientSecure.h>
 #include <PubSubClient.h>
 
 #include <WiFiUdp.h>
