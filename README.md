@@ -5,11 +5,36 @@ This application shows you how to connect your [Wio Terminal](https://www.seeeds
 
 As the Wio Terminal is one of PlatformIO's (many!) supported platforms, the application is conveniently made available as a PlatformIO project. This means that you don't have to worry about installing the [multiple Arduino libraries](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/) the Wio Terminal requires for Wi-Fi & TLS, and you don't need to manually install any other third-party library either! All dependencies are automatically fetched from Github by the PlatformIO Library Manager.
 
+  - [Supported device attestation methods](#supported-device-attestation-methods)
+  - [Update the Wi-Fi Firmware](#update-the-wi-fi-firmware)
   - [Configure directly connect to Azure IoT Hub](#configure-directly-connect-to-azure-iot-hub)
   - [Configure use provisioning to connect to Azure IoT Hub](#configure-use-provisioning-to-connect-to-azure-iot-hub)
   - [Running the application](#running-the-application)
   - [Testing the application](#testing-the-application)
   - [A few words on the Azure SDK for Embedded C and how it's been ported to Wio Terminal](#a-few-words-on-the-azure-sdk-for-embedded-c-and-how-its-been-ported-to-wio-terminal)
+
+## Supported device attestation methods
+
+The following table summarizes supported device attestation/authentication methods :
+
+| Service       | Enrollment | Authentication           | Support status |
+|:--------------|:-----------|:-------------------------|:---------------|
+| Azure IoT Hub | -          | Symmetric Key            | Need recompile |
+| Azure IoT Hub | -          | X.509 Self-Signed        | Not Supported  |
+| Azure IoT Hub | -          | X.509 CA-Signed          | Not Supported  |
+| Azure IoT DPS | Group      | Symmetric Key            | **Supported** |
+| Azure IoT DPS | Group      | CA Certificate           | Not Supported  |
+| Azure IoT DPS | Group      | Intermediate Certificate | Not Supported  |
+| Azure IoT DPS | Individual | Symmetric Key            | **Supported** |
+| Azure IoT DPS | Individual | X.509                    | Not Supported  |
+| Azure IoT DPS | Individual | TPM                      | Not Supported  |
+
+## Update the Wi-Fi Firmware
+
+Please follow instruction at [Wio Terminal's network overview page](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview/#update-the-wireless-core-firmware) to update the firmware.
+
+> You must use the version of Wi-Fi firmware specified in Azure IoT Firmware.
+> See [the release page](https://github.com/SeeedJP/wioterminal-aziot-example/releases).
 
 ## Configure directly connect to Azure IoT Hub
 

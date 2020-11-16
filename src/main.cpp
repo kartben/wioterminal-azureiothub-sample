@@ -7,7 +7,7 @@
 
 #include <LIS3DHTR.h>
 
-#include <WiFiClientSecure.h>
+#include <rpcWiFiClientSecure.h>
 #include <PubSubClient.h>
 
 #include <WiFiUdp.h>
@@ -463,13 +463,13 @@ void setup()
     // Connect Wi-Fi
 
     DisplayPrintf("Connecting to SSID: %s", IOT_CONFIG_WIFI_SSID);
-    WiFi.begin(IOT_CONFIG_WIFI_SSID, IOT_CONFIG_WIFI_PASSWORD);
-
-    while (WiFi.status() != WL_CONNECTED)
+    do
     {
         Log(".");
-        delay(1000);
+        WiFi.begin(IOT_CONFIG_WIFI_SSID, IOT_CONFIG_WIFI_PASSWORD);
+        delay(500);
     }
+    while (WiFi.status() != WL_CONNECTED);
     DisplayPrintf("Connected");
 
     ////////////////////
