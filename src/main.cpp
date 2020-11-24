@@ -50,6 +50,9 @@ PubSubClient mqtt_client(wifi_client);
 WiFiUDP wifi_udp;
 NTP ntp(wifi_udp);
 
+std::string HubHost;
+std::string DeviceId;
+
 #define AZ_RETURN_IF_FAILED(exp) \
   do \
   { \
@@ -250,20 +253,7 @@ static int ConnectToHub(az_iot_hub_client* iot_hub_client, const std::string& ho
     mqtt_client.setServer(host.c_str(), 8883);
     mqtt_client.setCallback(MqttSubscribeCallbackHub);
 
-    while (!mqtt_client.connected())
-    {
-        DisplayPrintf("Connecting to Azure IoT Hub...");
-        if (mqtt_client.connect(mqttClientId, mqttUsername, mqttPassword))
-        {
-            DisplayPrintf("> SUCCESS.");
-        }
-        else
-        {
-            DisplayPrintf("> ERROR.");
-            Log("> ERROR. Status code =%d. Try again in 5 seconds." DLM, mqtt_client.state());
-            delay(5000);
-        }
-    }
+    if (!mqtt_client.connect(mqttClientId, mqttUsername, mqttPassword)) return -6;
 
     mqtt_client.subscribe(AZ_IOT_HUB_CLIENT_METHODS_SUBSCRIBE_TOPIC);
     mqtt_client.subscribe(AZ_IOT_HUB_CLIENT_C2D_SUBSCRIBE_TOPIC);
@@ -476,45 +466,60 @@ void setup()
     // Sync time server
 
     ntp.begin();
-    const uint64_t expiration = ntp.epoch() + 3600;
 
     ////////////////////
     // Provisioning
 
-    std::string hubHost;
-    static std::string deviceId;
-
 #if defined(USE_CLI) || defined(USE_DPS)
 
-    if (RegisterDeviceToDPS(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT, IOT_CONFIG_ID_SCOPE, IOT_CONFIG_REGISTRATION_ID, IOT_CONFIG_SYMMETRIC_KEY, expiration, &hubHost, &deviceId) != 0)
+    if (RegisterDeviceToDPS(IOT_CONFIG_GLOBAL_DEVICE_ENDPOINT, IOT_CONFIG_ID_SCOPE, IOT_CONFIG_REGISTRATION_ID, IOT_CONFIG_SYMMETRIC_KEY, ntp.epoch() + TOKEN_LIFESPAN, &HubHost, &DeviceId) != 0)
     {
         Abort("RegisterDeviceToDPS()");
     }
 
 #else
 
-    hubHost = IOT_CONFIG_IOTHUB;
-    deviceId = IOT_CONFIG_DEVICE_ID;
+    HubHost = IOT_CONFIG_IOTHUB;
+    DeviceId = IOT_CONFIG_DEVICE_ID;
 
 #endif // USE_CLI || USE_DPS
-
-    ////////////////////
-    // Hub
-
-    if (ConnectToHub(&HubClient, hubHost, deviceId, IOT_CONFIG_SYMMETRIC_KEY, expiration) != 0)
-    {
-        Abort("Failed to connect Hub");
-    }
 }
 
 void loop()
 {
-    mqtt_client.loop();
+    static uint64_t reconnectTime;
 
-    static unsigned long nextTelemetrySendTime = 0;
-    if (millis() > nextTelemetrySendTime)
+    if (!mqtt_client.connected())
     {
-        SendTelemetry();
-        nextTelemetrySendTime = millis() + TELEMETRY_FREQUENCY_MILLISECS;
+        DisplayPrintf("Connecting to Azure IoT Hub...");
+        const uint64_t now = ntp.epoch();
+        if (ConnectToHub(&HubClient, HubHost, DeviceId, IOT_CONFIG_SYMMETRIC_KEY, now + TOKEN_LIFESPAN) != 0)
+        {
+            DisplayPrintf("> ERROR.");
+            Log("> ERROR. Status code =%d. Try again in 5 seconds." DLM, mqtt_client.state());
+            delay(5000);
+            return;
+        }
+
+        DisplayPrintf("> SUCCESS.");
+        reconnectTime = now + TOKEN_LIFESPAN * 0.85;
+    }
+    else
+    {
+        if ((uint64_t)ntp.epoch() >= reconnectTime)
+        {
+            DisplayPrintf("Disconnect");
+            mqtt_client.disconnect();
+            return;
+        }
+
+        mqtt_client.loop();
+
+        static unsigned long nextTelemetrySendTime = 0;
+        if (millis() > nextTelemetrySendTime)
+        {
+            SendTelemetry();
+            nextTelemetrySendTime = millis() + TELEMETRY_FREQUENCY_MILLISECS;
+        }
     }
 }

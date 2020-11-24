@@ -37,6 +37,8 @@
 
 #endif // USE_CLI
 
+#define TOKEN_LIFESPAN                      3600
+
 #define TELEMETRY_FREQUENCY_MILLISECS		2000
 #define TELEMETRY_ACCEL_X					"accelX"
 #define TELEMETRY_ACCEL_Y					"accelY"
