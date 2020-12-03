@@ -42,5 +42,5 @@
 #define TELEMETRY_ACCEL_X					"accelX"
 #define TELEMETRY_ACCEL_Y					"accelY"
 #define TELEMETRY_ACCEL_Z					"accelZ"
-#define TELEMETRY_ILLUMINANCE               "illuminance"
+#define TELEMETRY_LIGHT                     "light"
 #define COMMAND_RING_BUZZER					"ringBuzzer"
