@@ -268,6 +268,9 @@ static az_result SendTelemetry()
     float accelZ;
     AccelSensor.getAcceleration(&accelX, &accelY, &accelZ);
 
+    int light;
+    light = analogRead(WIO_LIGHT);
+
     char telemetry_topic[128];
     if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(&HubClient, NULL, telemetry_topic, sizeof(telemetry_topic), NULL)))
     {
@@ -276,7 +279,7 @@ static az_result SendTelemetry()
     }
 
     az_json_writer json_builder;
-    char telemetry_payload[80];
+    char telemetry_payload[200];
     AZ_RETURN_IF_FAILED(az_json_writer_init(&json_builder, AZ_SPAN_FROM_BUFFER(telemetry_payload), NULL));
     AZ_RETURN_IF_FAILED(az_json_writer_append_begin_object(&json_builder));
     AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_ACCEL_X)));
@@ -285,6 +288,8 @@ static az_result SendTelemetry()
     AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, accelY, 3));
     AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_ACCEL_Z)));
     AZ_RETURN_IF_FAILED(az_json_writer_append_double(&json_builder, accelZ, 3));
+    AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_ILLUMINANCE)));
+    AZ_RETURN_IF_FAILED(az_json_writer_append_int32(&json_builder, light));
     AZ_RETURN_IF_FAILED(az_json_writer_append_end_object(&json_builder));
     const az_span out_payload{ az_json_writer_get_bytes_used_in_destination(&json_builder) };
 
@@ -417,6 +422,7 @@ void setup()
 
     Serial.begin(115200);
 
+    pinMode(WIO_LIGHT, INPUT);
     pinMode(WIO_BUZZER, OUTPUT);
     pinMode(WIO_KEY_A, INPUT_PULLUP);
     pinMode(WIO_KEY_B, INPUT_PULLUP);

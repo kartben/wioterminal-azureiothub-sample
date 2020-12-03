@@ -1,5 +1,5 @@
 {
-  "@id": "dtmi:seeedkk:wioterminal:wioterminal_aziot_example;1",
+  "@id": "dtmi:seeedkk:wioterminal:wioterminal_aziot_example;2",
   "@type": "Interface",
   "@context": "dtmi:dtdl:context;2",
   "displayName": "Seeed Wio Terminal",
@@ -30,6 +30,15 @@
         "ja": "加速度 Z"
       },
       "schema": "double"
+    },
+    {
+      "@type": "Telemetry",
+      "name": "illuminance",
+      "displayName": {
+        "en": "Illuminance",
+        "ja": "照度"
+      },
+      "schema": "integer"
     },
     {
       "@type": "Command",
