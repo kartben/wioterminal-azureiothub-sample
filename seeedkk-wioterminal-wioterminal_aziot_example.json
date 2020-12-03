@@ -7,28 +7,47 @@
     {
       "@type": "Telemetry",
       "name": "accelX",
-      "displayName": "Acceleration X",
+      "displayName": {
+        "en": "Acceleration X",
+        "ja": "加速度 X"
+      },
       "schema": "double"
     },
     {
       "@type": "Telemetry",
       "name": "accelY",
-      "displayName": "Acceleration Y",
+      "displayName": {
+        "en": "Acceleration Y",
+        "ja": "加速度 Y"
+      },
       "schema": "double"
     },
     {
       "@type": "Telemetry",
       "name": "accelZ",
-      "displayName": "Acceleration Z",
+      "displayName": {
+        "en": "Acceleration Z",
+        "ja": "加速度 Z"
+      },
       "schema": "double"
     },
     {
       "@type": "Command",
       "name": "ringBuzzer",
-      "displayName": "Ring buzzer",
+      "displayName": {
+        "en": "Ring buzzer",
+        "ja": "ブザーを鳴らす"
+      },
       "request": {
         "name": "duration",
-        "displayName": "Duration",
+        "displayName": {
+          "en": "Duration",
+          "ja": "期間"
+        },
+        "description": {
+          "en": "Buzzer duration (milliseconds)",
+          "ja": "ブザーを鳴らす期間（単位はミリ秒）"
+        },
         "schema": "integer"
       }
     }
