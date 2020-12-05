@@ -13,10 +13,10 @@
 #include <WiFiUdp.h>
 #include <NTP.h>
 
-#include <az_json.h>
-#include <az_result.h>
-#include <az_span.h>
-#include <az_iot_hub_client.h>
+#include <azure/core/az_json.h>
+#include <azure/core/az_result.h>
+#include <azure/core/az_span.h>
+#include <azure/iot/az_iot_hub_client.h>
 
 #define MQTT_PACKET_SIZE 1024
 
