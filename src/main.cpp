@@ -422,7 +422,6 @@ void setup()
 
     Serial.begin(115200);
 
-    pinMode(WIO_LIGHT, INPUT);
     pinMode(WIO_BUZZER, OUTPUT);
     pinMode(WIO_KEY_A, INPUT_PULLUP);
     pinMode(WIO_KEY_B, INPUT_PULLUP);
