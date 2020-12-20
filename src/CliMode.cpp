@@ -54,7 +54,7 @@ static void print_help()
     
     for (int i = 0; i < cmd_count; i++)
     {
-        Serial.printf(" - %s: %s." DLM, cmds[i].name, cmds[i].help);
+        Serial.print(String::format(" - %s: %s." DLM, cmds[i].name, cmds[i].help));
     }
 }
 
@@ -73,18 +73,18 @@ static void reset_factory_settings_command(int argc, char** argv)
 
 static void display_settings_command(int argc, char** argv)
 {
-    Serial.printf("Wi-Fi SSID = %s" DLM, Storage::WiFiSSID.c_str());
-    Serial.printf("Wi-Fi password = %s" DLM, Storage::WiFiPassword.c_str());
-    Serial.printf("Id scope of Azure IoT DPS = %s" DLM, Storage::IdScope.c_str());
-    Serial.printf("Registration id of Azure IoT DPS = %s" DLM, Storage::RegistrationId.c_str());
-    Serial.printf("Symmetric key of Azure IoT DPS = %s" DLM, Storage::SymmetricKey.c_str());
+    Serial.print(String::format("Wi-Fi SSID = %s" DLM, Storage::WiFiSSID.c_str()));
+    Serial.print(String::format("Wi-Fi password = %s" DLM, Storage::WiFiPassword.c_str()));
+    Serial.print(String::format("Id scope of Azure IoT DPS = %s" DLM, Storage::IdScope.c_str()));
+    Serial.print(String::format("Registration id of Azure IoT DPS = %s" DLM, Storage::RegistrationId.c_str()));
+    Serial.print(String::format("Symmetric key of Azure IoT DPS = %s" DLM, Storage::SymmetricKey.c_str()));
 }
 
 static void wifissid_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <SSID>. Please provide the SSID of the Wi-Fi." DLM, argv[0]);
+        Serial.print(String::format("ERROR: Usage: %s <SSID>. Please provide the SSID of the Wi-Fi." DLM, argv[0]));
         return;
     }
 
@@ -98,7 +98,7 @@ static void wifipwd_Command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <Password>. Please provide the password of the Wi-Fi." DLM, argv[0]);
+        Serial.print(String::format("ERROR: Usage: %s <Password>. Please provide the password of the Wi-Fi." DLM, argv[0]));
         return;
     }
 
@@ -112,7 +112,7 @@ static void az_idscope_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <Id scope>. Please provide the id scope of the Azure IoT DPS." DLM, argv[0]);
+        Serial.print(String::format("ERROR: Usage: %s <Id scope>. Please provide the id scope of the Azure IoT DPS." DLM, argv[0]));
         return;
     }
 
@@ -126,7 +126,7 @@ static void az_regid_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <Registration id>. Please provide the registraion id of the Azure IoT DPS." DLM, argv[0]);
+        Serial.print(String::format("ERROR: Usage: %s <Registration id>. Please provide the registraion id of the Azure IoT DPS." DLM, argv[0]));
         return;
     }
 
@@ -140,7 +140,7 @@ static void az_symkey_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
-        Serial.printf("ERROR: Usage: %s <Symmetric key>. Please provide the symmetric key of the Azure IoT DPS." DLM, argv[0]);
+        Serial.print(String::format("ERROR: Usage: %s <Symmetric key>. Please provide the symmetric key of the Azure IoT DPS." DLM, argv[0]));
         return;
     }
 
@@ -154,7 +154,7 @@ static void az_iotc_command(int argc, char** argv)
 {
     if (argc != 4) 
     {
-        Serial.printf("ERROR: Usage: %s <Id scope> <SAS key> <Device id>." DLM, argv[0]);
+        Serial.print(String::format("ERROR: Usage: %s <Id scope> <SAS key> <Device id>." DLM, argv[0]));
         return;
     }
 
@@ -315,7 +315,7 @@ static bool CliHandleInput(char* inbuf)
         }
     }
     
-    Serial.printf("ERROR: Invalid command: %s" DLM, argv[0]);
+    Serial.print(String::format("ERROR: Invalid command: %s" DLM, argv[0]));
     return true;
 }
 

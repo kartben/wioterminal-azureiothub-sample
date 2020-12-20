@@ -84,7 +84,7 @@ static void Abort(const char* format, ...)
     String str{ StringVFormat(format, arg) };
     va_end(arg);
 
-    Serial.printf("ABORT: %s" DLM, str.c_str());
+    Serial.print(String::format("ABORT: %s" DLM, str.c_str()));
 
     while (true) {}
 }
