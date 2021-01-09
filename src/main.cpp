@@ -118,6 +118,68 @@ static void DisplayPrintf(const char* format, ...)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Button
+
+#include <AceButton.h>
+using namespace ace_button;
+
+enum class ButtonId
+{
+    RIGHT = 0,
+    CENTER,
+    LEFT,
+};
+static const int ButtonNumber = 3;
+static AceButton Buttons[ButtonNumber];
+static bool ButtonsClicked[ButtonNumber];
+
+static void ButtonEventHandler(AceButton* button, uint8_t eventType, uint8_t buttonState)
+{
+    const uint8_t id = button->getId();
+    if (ButtonNumber <= id) return;
+
+    switch (eventType)
+    {
+    case AceButton::kEventClicked:
+        switch (static_cast<ButtonId>(id))
+        {
+        case ButtonId::RIGHT:
+            DisplayPrintf("Right button was clicked");
+            break;
+        case ButtonId::CENTER:
+            DisplayPrintf("Center button was clicked");
+            break;
+        case ButtonId::LEFT:
+            DisplayPrintf("Left button was clicked");
+            break;
+        }
+        ButtonsClicked[id] = true;
+        break;
+    }
+}
+
+static void ButtonInit()
+{
+    Buttons[static_cast<int>(ButtonId::RIGHT)].init(WIO_KEY_A, HIGH, static_cast<uint8_t>(ButtonId::RIGHT));
+    Buttons[static_cast<int>(ButtonId::CENTER)].init(WIO_KEY_B, HIGH, static_cast<uint8_t>(ButtonId::CENTER));
+    Buttons[static_cast<int>(ButtonId::LEFT)].init(WIO_KEY_C, HIGH, static_cast<uint8_t>(ButtonId::LEFT));
+
+    ButtonConfig* buttonConfig = ButtonConfig::getSystemButtonConfig();
+    buttonConfig->setEventHandler(ButtonEventHandler);
+    buttonConfig->setFeature(ButtonConfig::kFeatureClick);
+
+    for (int i = 0; i < ButtonNumber; ++i) ButtonsClicked[i] = false;
+}
+
+static void ButtonDoWork()
+{
+    for (int i = 0; static_cast<size_t>(i) < std::extent<decltype(Buttons)>::value; ++i)
+    {
+        Buttons[i].check();
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Azure IoT DPS
 
 static AzureDpsClient DpsClient;
@@ -307,6 +369,51 @@ static az_result SendTelemetry()
     return AZ_OK;
 }
 
+static az_result SendButtonTelemetry(ButtonId id)
+{
+    char telemetry_topic[128];
+    if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(&HubClient, NULL, telemetry_topic, sizeof(telemetry_topic), NULL)))
+    {
+        Log("Failed az_iot_hub_client_telemetry_get_publish_topic" DLM);
+        return AZ_ERROR_NOT_SUPPORTED;
+    }
+
+    az_json_writer json_builder;
+    char telemetry_payload[200];
+    AZ_RETURN_IF_FAILED(az_json_writer_init(&json_builder, AZ_SPAN_FROM_BUFFER(telemetry_payload), NULL));
+    AZ_RETURN_IF_FAILED(az_json_writer_append_begin_object(&json_builder));
+    switch (id)
+    {
+    case ButtonId::RIGHT:
+        AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_RIGHT_BUTTON)));
+        AZ_RETURN_IF_FAILED(az_json_writer_append_string(&json_builder, AZ_SPAN_LITERAL_FROM_STR("click")));
+        break;
+    case ButtonId::CENTER:
+        AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_CENTER_BUTTON)));
+        AZ_RETURN_IF_FAILED(az_json_writer_append_string(&json_builder, AZ_SPAN_LITERAL_FROM_STR("click")));
+        break;
+    case ButtonId::LEFT:
+        AZ_RETURN_IF_FAILED(az_json_writer_append_property_name(&json_builder, AZ_SPAN_LITERAL_FROM_STR(TELEMETRY_LEFT_BUTTON)));
+        AZ_RETURN_IF_FAILED(az_json_writer_append_string(&json_builder, AZ_SPAN_LITERAL_FROM_STR("click")));
+        break;
+    default:
+        return AZ_ERROR_ARG;
+    }
+    AZ_RETURN_IF_FAILED(az_json_writer_append_end_object(&json_builder));
+    const az_span out_payload{ az_json_writer_get_bytes_used_in_destination(&json_builder) };
+
+    if (!mqtt_client.publish(telemetry_topic, az_span_ptr(out_payload), az_span_size(out_payload), false))
+    {
+        DisplayPrintf("ERROR: Send button telemetry");
+    }
+    else
+    {
+        DisplayPrintf("Sent button telemetry");
+    }
+
+    return AZ_OK;
+}
+
 static void HandleCommandMessage(az_span payload, az_iot_hub_client_method_request* command_request)
 {
     int command_res_code = 200;
@@ -423,9 +530,6 @@ void setup()
     Serial.begin(115200);
 
     pinMode(WIO_BUZZER, OUTPUT);
-    pinMode(WIO_KEY_A, INPUT_PULLUP);
-    pinMode(WIO_KEY_B, INPUT_PULLUP);
-    pinMode(WIO_KEY_C, INPUT_PULLUP);
 
     ////////////////////
     // Init display
@@ -438,6 +542,11 @@ void setup()
 
     ////////////////////
     // Enter configuration mode
+
+    pinMode(WIO_KEY_A, INPUT_PULLUP);
+    pinMode(WIO_KEY_B, INPUT_PULLUP);
+    pinMode(WIO_KEY_C, INPUT_PULLUP);
+    delay(100);
 
     if (digitalRead(WIO_KEY_A) == LOW &&
         digitalRead(WIO_KEY_B) == LOW &&
@@ -453,6 +562,8 @@ void setup()
     AccelSensor.begin(Wire1);
     AccelSensor.setOutputDataRate(LIS3DHTR_DATARATE_25HZ);
     AccelSensor.setFullScaleRange(LIS3DHTR_RANGE_2G);
+
+    ButtonInit();
 
     ////////////////////
     // Connect Wi-Fi
@@ -492,8 +603,9 @@ void setup()
 
 void loop()
 {
-    static uint64_t reconnectTime;
+    ButtonDoWork();
 
+    static uint64_t reconnectTime;
     if (!mqtt_client.connected())
     {
         DisplayPrintf("Connecting to Azure IoT Hub...");
@@ -525,6 +637,15 @@ void loop()
         {
             SendTelemetry();
             nextTelemetrySendTime = millis() + TELEMETRY_FREQUENCY_MILLISECS;
+        }
+
+        for (int i = 0; i < ButtonNumber; ++i)
+        {
+            if (ButtonsClicked[i])
+            {
+                SendButtonTelemetry(static_cast<ButtonId>(i));
+                ButtonsClicked[i] = false;
+            }
         }
     }
 }
