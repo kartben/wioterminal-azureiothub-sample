@@ -27,7 +27,7 @@ static void help_command(int argc, char** argv);
 static void reset_factory_settings_command(int argc, char** argv);
 static void display_settings_command(int argc, char** argv);
 static void wifissid_command(int argc, char** argv);
-static void wifipwd_Command(int argc, char** argv);
+static void wifipwd_command(int argc, char** argv);
 static void az_idscope_command(int argc, char** argv);
 static void az_regid_command(int argc, char** argv);
 static void az_symkey_command(int argc, char** argv);
@@ -39,7 +39,7 @@ static const struct console_command cmds[] =
   {"reset_factory_settings", "Reset factory settings"                         , reset_factory_settings_command },
   {"show_settings"         , "Display settings"                               , display_settings_command       },
   {"set_wifissid"          , "Set Wi-Fi SSID"                                 , wifissid_command               },
-  {"set_wifipwd"           , "Set Wi-Fi password"                             , wifipwd_Command                },
+  {"set_wifipwd"           , "Set Wi-Fi password"                             , wifipwd_command                },
   {"set_az_idscope"        , "Set id scope of Azure IoT DPS"                  , az_idscope_command             },
   {"set_az_regid"          , "Set registration id of Azure IoT DPS"           , az_regid_command               },
   {"set_az_symkey"         , "Set symmetric key of Azure IoT DPS"             , az_symkey_command              },
@@ -94,7 +94,7 @@ static void wifissid_command(int argc, char** argv)
     Serial.print("Set Wi-Fi SSID successfully." DLM);
 }
 
-static void wifipwd_Command(int argc, char** argv)
+static void wifipwd_command(int argc, char** argv)
 {
     if (argc != 2) 
     {
