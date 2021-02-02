@@ -24,6 +24,7 @@ struct console_command
 };
 
 static void help_command(int argc, char** argv);
+static void burn_rtl8720_command(int argc, char** argv);
 static void reset_factory_settings_command(int argc, char** argv);
 static void display_settings_command(int argc, char** argv);
 static void wifissid_command(int argc, char** argv);
@@ -36,6 +37,7 @@ static void az_iotc_command(int argc, char** argv);
 static const struct console_command cmds[] = 
 {
   {"help"                  , "Help document"                                  , help_command                   },
+  {"burn_rtl8720"          , "Enter the Burn RTL8720 Firmware mode"           , burn_rtl8720_command           },
   {"reset_factory_settings", "Reset factory settings"                         , reset_factory_settings_command },
   {"show_settings"         , "Display settings"                               , display_settings_command       },
   {"set_wifissid"          , "Set Wi-Fi SSID"                                 , wifissid_command               },
@@ -47,6 +49,42 @@ static const struct console_command cmds[] =
 };
 
 static const int cmd_count = sizeof(cmds) / sizeof(cmds[0]);
+
+static void EnterBurnRTL8720Mode()
+{
+    // Switch mode of RTL8720
+    pinMode(PIN_SERIAL2_RX, OUTPUT);
+    pinMode(RTL8720D_CHIP_PU, OUTPUT);
+    digitalWrite(PIN_SERIAL2_RX, LOW);
+    digitalWrite(RTL8720D_CHIP_PU, LOW);
+    delay(500);
+    pinMode(RTL8720D_CHIP_PU, INPUT);
+    delay(500);
+    pinMode(PIN_SERIAL2_RX, INPUT);
+
+    // Initialize UART
+    Serial.beginWithoutDTR(115200);
+    auto oldBaud = Serial.baud();
+    RTL8720D.begin(oldBaud);
+    delay(500);
+
+    while (true)
+    {
+        // Change baud
+        const auto baud = Serial.baud();
+        if (baud != oldBaud)
+        {
+            RTL8720D.begin(baud);
+            oldBaud = baud;
+        }
+
+        // USB -> RTL
+        while (Serial.available()) RTL8720D.write(Serial.read());
+
+        // RTL -> USB
+        while (RTL8720D.available()) Serial.write(RTL8720D.read());
+    }
+}
 
 static void print_help()
 {
@@ -61,6 +99,20 @@ static void print_help()
 static void help_command(int argc, char** argv)
 {
     print_help();
+}
+
+static void burn_rtl8720_command(int argc, char** argv)
+{
+    Serial.print("Enter the Burn RTL8720 Firmware mode." DLM);
+    Serial.print("[Windows]" DLM);
+    Serial.print("  ambd_flash_tool.exe erase" DLM);
+    Serial.print("  ambd_flash_tool.exe flash -d [RTL8720-firmware-path]" DLM);
+    Serial.print("[macOS/Linux]" DLM);
+    Serial.print("  python3 ambd_flash_tool.py erase" DLM);
+    Serial.print("  python3 ambd_flash_tool.py flash -d [RTL8720-firmware-path]" DLM);
+    delay(1000);
+
+    EnterBurnRTL8720Mode();
 }
 
 static void reset_factory_settings_command(int argc, char** argv)
